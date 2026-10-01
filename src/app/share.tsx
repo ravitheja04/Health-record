@@ -52,6 +52,7 @@ export default function ShareScreen() {
         `${r.attachmentsAdded} files`,
         `${r.labResultsImported} lab results`,
         `${r.medicationsAdded} new and ${r.medicationsUpdated} updated medicines`,
+        `${r.vaccinationsAdded} new and ${r.vaccinationsUpdated} updated vaccinations`,
       ];
       syncRemindersQuietly(db);
       Alert.alert(

@@ -5,9 +5,12 @@ import { Platform } from 'react-native';
 import { todayIso } from './format';
 import { addDays, daysOfSupply, isCurrent, isDueOn, needsRefill } from './medSchedule';
 import { listMedications, type MedicationWithMember } from './meds';
+import { listVaccinations } from './vaccines';
 
 const CHANNEL_ID = 'medicine-reminders';
-const PREFIXES = ['med:', 'refill:'];
+const PREFIXES = ['med:', 'refill:', 'vac:'];
+/** Vaccines due within this many days get reminders; later ones are added as the date approaches. */
+const VACCINE_DAYS = 90;
 /** Medicines with an end date get one-off reminders for this many days ahead, refreshed when the app opens. */
 const ONE_OFF_DAYS = 14;
 
@@ -25,9 +28,9 @@ export function configureNotifications() {
 async function ensureChannel() {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-    name: 'Medicine reminders',
+    name: 'Medicine & vaccination reminders',
     importance: Notifications.AndroidImportance.HIGH,
-    description: 'Reminders to take medicines and refill them',
+    description: 'Reminders to take medicines, refill them, and for vaccinations that are due',
   });
 }
 
@@ -74,6 +77,8 @@ export async function syncReminders(db: SQLiteDatabase) {
 
   const today = todayIso();
   const now = new Date();
+  await scheduleVaccineReminders(db, today, now);
+
   const meds = (await listMedications(db)).filter((m) => m.remindersOn && isCurrent(m, today));
 
   for (const med of meds) {
@@ -126,6 +131,27 @@ export async function syncReminders(db: SQLiteDatabase) {
           data: { url: '/medicines' },
         },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: tomorrowMorning, channelId: CHANNEL_ID },
+      });
+    }
+  }
+}
+
+async function scheduleVaccineReminders(db: SQLiteDatabase, today: string, now: Date) {
+  const horizon = addDays(today, VACCINE_DAYS);
+  const due = (await listVaccinations(db)).filter((v) => !v.givenDate && v.dueDate && v.dueDate >= today && v.dueDate <= horizon);
+  for (const v of due) {
+    const what = [v.name, v.dose].filter(Boolean).join(' · ');
+    const reminders = [
+      { date: addDays(v.dueDate!, -7), title: `Vaccination next week: ${what}`, body: `${v.memberName} is due on ${v.dueDate!.split('-').reverse().join('/')}.` },
+      { date: v.dueDate!, title: `Vaccination due today: ${what}`, body: `${v.memberName} is due today. Mark it as given once done.` },
+    ];
+    for (const r of reminders) {
+      const when = at(r.date, '09:00');
+      if (when <= now) continue;
+      await Notifications.scheduleNotificationAsync({
+        identifier: `vac:${v.id}:${r.date}`,
+        content: { title: r.title, body: r.body, data: { url: `/vaccines/${v.memberId}` } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when, channelId: CHANNEL_ID },
       });
     }
   }

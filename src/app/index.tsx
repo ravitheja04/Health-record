@@ -10,6 +10,8 @@ import { listMembers, listRecentRecords } from '@/lib/db';
 import { ageFrom, todayIso } from '@/lib/format';
 import { dosesOn, formatTime, needsRefill, nextDose } from '@/lib/medSchedule';
 import { listDoseLogs, listMedications, type MedicationWithMember } from '@/lib/meds';
+import { sortVaccinations, STATUS_STYLE, vaccineDetail, vaccineStatus } from '@/lib/vaccineAnalysis';
+import { listVaccinations, type VaccinationWithMember } from '@/lib/vaccines';
 import { useQuery } from '@/lib/useQuery';
 
 export default function HomeScreen() {
@@ -17,13 +19,22 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const load = useCallback(async () => {
     const today = todayIso();
-    const [members, recent, meds, logs] = await Promise.all([
+    const [members, recent, meds, logs, vaccines] = await Promise.all([
       listMembers(db),
       listRecentRecords(db, 5),
       listMedications(db),
       listDoseLogs(db, today),
+      listVaccinations(db),
     ]);
-    return { members, recent, meds, doses: dosesOn(meds, logs, today), refills: meds.filter((m) => needsRefill(m, today)) };
+    const vaccinesDue = sortVaccinations(vaccines, today).filter((v) => ['overdue', 'due'].includes(vaccineStatus(v, today)));
+    return {
+      members,
+      recent,
+      meds,
+      doses: dosesOn(meds, logs, today),
+      refills: meds.filter((m) => needsRefill(m, today)),
+      vaccinesDue,
+    };
   }, [db]);
   const { data } = useQuery(load);
   const members = data?.members ?? [];
@@ -97,6 +108,7 @@ export default function HomeScreen() {
         ) : null}
 
         {members.length > 0 ? <MedicinesCard data={data} /> : null}
+        {data?.vaccinesDue.length ? <VaccinesDueCard list={data.vaccinesDue} /> : null}
 
         {recent.length > 0 ? (
           <>
@@ -150,6 +162,43 @@ function MedicinesCard({ data }: { data?: { meds: MedicationWithMember[]; doses:
           Refill soon: {refills.map((m) => m.name).join(', ')}
         </Text>
       ) : null}
+    </Card>
+  );
+}
+
+function VaccinesDueCard({ list }: { list: VaccinationWithMember[] }) {
+  const today = todayIso();
+  const shown = list.slice(0, 3);
+  return (
+    <Card style={{ gap: 10 }}>
+      <View style={styles.row}>
+        <Icon name="shield-checkmark-outline" color="#059669" size={24} />
+        <Text style={[styles.title, { flex: 1 }]}>Vaccinations due</Text>
+        <Text style={{ color: colors.primary, fontWeight: '600' }}>{list.length}</Text>
+      </View>
+      {shown.map((v) => {
+        const status = vaccineStatus(v, today);
+        return (
+          <Pressable
+            key={v.id}
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/vaccines/[memberId]', params: { memberId: v.memberId } })}
+            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10 }, pressed && styles.pressed]}>
+            <Avatar name={v.memberName} color={v.memberColor} size={28} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.body, { fontWeight: '600' }]} numberOfLines={1}>
+                {v.memberName} · {v.name}
+                {v.dose ? ` ${v.dose}` : ''}
+              </Text>
+              <Text style={[styles.subtitle, { marginTop: 0, color: STATUS_STYLE[status].color }]} numberOfLines={1}>
+                {vaccineDetail(v, today)}
+              </Text>
+            </View>
+            <Icon name="chevron-forward-outline" size={16} color={colors.muted} />
+          </Pressable>
+        );
+      })}
+      {list.length > shown.length ? <Text style={styles.subtitle}>+ {list.length - shown.length} more</Text> : null}
     </Card>
   );
 }

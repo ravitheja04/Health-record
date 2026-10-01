@@ -103,6 +103,27 @@ export type DoseLog = {
   loggedAt: string;
 };
 
+export type Vaccination = {
+  id: string;
+  memberId: string;
+  /** Vaccine name, e.g. "MMR". */
+  name: string;
+  /** Which dose, e.g. "Dose 1" or "Booster 1". */
+  dose: string;
+  /** When it is due; null when no date is known ("as advised"). */
+  dueDate: string | null;
+  /** When it was given; null while still due. */
+  givenDate: string | null;
+  facility: string;
+  notes: string;
+  /** The medical record created when it was given (holds the certificate). */
+  recordId: string | null;
+  /** Template entry it came from, e.g. "iap:mmr-1", so a schedule is never added twice. */
+  scheduleKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export const RECORD_TYPES: Record<RecordType, { label: string; icon: string; color: string }> = {
   lab: { label: 'Lab report', icon: 'flask-outline', color: '#7C3AED' },
   prescription: { label: 'Prescription', icon: 'medkit-outline', color: '#DB2777' },

@@ -13,6 +13,8 @@ import { countMemberResults } from '@/lib/labs';
 import { isCurrent } from '@/lib/medSchedule';
 import { listMedications } from '@/lib/meds';
 import { syncRemindersQuietly } from '@/lib/reminders';
+import { sortVaccinations, vaccineDetail, vaccineStatus, vaccineSummary } from '@/lib/vaccineAnalysis';
+import { listVaccinations } from '@/lib/vaccines';
 import { shareMemberSummaryPdf, shareRegistryBundle } from '@/lib/share';
 import { showError, useQuery } from '@/lib/useQuery';
 import { RECORD_TYPES, type RecordType } from '@/lib/types';
@@ -31,6 +33,7 @@ export default function MemberScreen() {
       records: await listRecords(db, id),
       labTests: await countMemberResults(db, id),
       meds: await listMedications(db, id),
+      vaccines: await listVaccinations(db, id),
     }),
     [db, id]
   );
@@ -159,6 +162,24 @@ export default function MemberScreen() {
                   return current.length
                     ? current.map((m) => m.name).join(', ')
                     : 'Add medicines to get dose reminders';
+                })()}
+              </Text>
+            </View>
+            <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
+          </View>
+        </Card>
+        <Card onPress={() => router.push({ pathname: '/vaccines/[memberId]', params: { memberId: id } })}>
+          <View style={styles.row}>
+            <Icon name="shield-checkmark-outline" color="#059669" size={24} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Vaccinations</Text>
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {(() => {
+                  const today = todayIso();
+                  if (!data.vaccines.length) return 'Track doses given and when the next ones are due';
+                  const s = vaccineSummary(data.vaccines, today);
+                  const next = sortVaccinations(data.vaccines, today).find((v) => vaccineStatus(v, today) !== 'given');
+                  return `${s.given} of ${s.total} given${next ? ` · ${next.name}: ${vaccineDetail(next, today)}` : ''}`;
                 })()}
               </Text>
             </View>
