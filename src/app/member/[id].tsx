@@ -8,8 +8,11 @@ import { RecordRow } from '@/components/RecordRow';
 import { Avatar, Button, Card, ChipSelect, colors, EmptyState, Icon, InfoRow, SectionTitle, styles } from '@/components/ui';
 import { deleteMember, getMember, listRecords } from '@/lib/db';
 import { removeAttachmentFiles } from '@/lib/files';
-import { ageFrom, formatDate } from '@/lib/format';
+import { ageFrom, formatDate, todayIso } from '@/lib/format';
 import { countMemberResults } from '@/lib/labs';
+import { isCurrent } from '@/lib/medSchedule';
+import { listMedications } from '@/lib/meds';
+import { syncRemindersQuietly } from '@/lib/reminders';
 import { shareMemberSummaryPdf, shareRegistryBundle } from '@/lib/share';
 import { showError, useQuery } from '@/lib/useQuery';
 import { RECORD_TYPES, type RecordType } from '@/lib/types';
@@ -23,7 +26,12 @@ export default function MemberScreen() {
   const [filter, setFilter] = useState<RecordType | null>(null);
   const [busy, setBusy] = useState<'pdf' | 'file' | null>(null);
   const load = useCallback(
-    async () => ({ member: await getMember(db, id), records: await listRecords(db, id), labTests: await countMemberResults(db, id) }),
+    async () => ({
+      member: await getMember(db, id),
+      records: await listRecords(db, id),
+      labTests: await countMemberResults(db, id),
+      meds: await listMedications(db, id),
+    }),
     [db, id]
   );
   const { data } = useQuery(load);
@@ -62,6 +70,7 @@ export default function MemberScreen() {
           onPress: async () => {
             try {
               removeAttachmentFiles(await deleteMember(db, id));
+              syncRemindersQuietly(db);
               router.back();
             } catch (e) {
               showError('Could not delete', e);
@@ -139,6 +148,23 @@ export default function MemberScreen() {
           icon="add-outline"
           onPress={() => router.push({ pathname: '/record/edit', params: { memberId: id } })}
         />
+        <Card onPress={() => router.push({ pathname: '/medicines', params: { memberId: id } })}>
+          <View style={styles.row}>
+            <Icon name="medkit-outline" color="#DB2777" size={24} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Medicines & reminders</Text>
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {(() => {
+                  const current = data.meds.filter((m) => isCurrent(m, todayIso()));
+                  return current.length
+                    ? current.map((m) => m.name).join(', ')
+                    : 'Add medicines to get dose reminders';
+                })()}
+              </Text>
+            </View>
+            <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
+          </View>
+        </Card>
         <Card onPress={() => router.push({ pathname: '/labs/[memberId]', params: { memberId: id } })}>
           <View style={styles.row}>
             <Icon name="analytics-outline" color="#7C3AED" size={24} />

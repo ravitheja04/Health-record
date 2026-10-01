@@ -5,6 +5,7 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Card, colors, Icon, styles } from '@/components/ui';
+import { syncRemindersQuietly } from '@/lib/reminders';
 import { importRegistryBundle, shareRegistryBundle } from '@/lib/share';
 import { showError } from '@/lib/useQuery';
 
@@ -50,8 +51,13 @@ export default function ShareScreen() {
         `${r.recordsAdded} new and ${r.recordsUpdated} updated records`,
         `${r.attachmentsAdded} files`,
         `${r.labResultsImported} lab results`,
+        `${r.medicationsAdded} new and ${r.medicationsUpdated} updated medicines`,
       ];
-      Alert.alert('Import complete', lines.join('\n'));
+      syncRemindersQuietly(db);
+      Alert.alert(
+        'Import complete',
+        `${lines.join('\n')}${r.medicationsAdded ? '\n\nReminders for shared medicines are off on this phone. Turn them on per medicine if you want them here.' : ''}`
+      );
     } catch (e) {
       showError('Could not import', e);
     } finally {

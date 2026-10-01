@@ -5,13 +5,15 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import * as DB from './db';
 import { buildSeries, formatRange, formatValue, statusOf } from './labAnalysis';
 import * as Labs from './labs';
+import { isCurrent, scheduleText } from './medSchedule';
+import * as Meds from './meds';
 import { readAttachmentBase64, shareFile, writeAttachmentFromBase64 } from './files';
 import { ageFrom, escapeHtml, formatDate, safeFileName, todayIso } from './format';
-import { RECORD_TYPES, type Attachment, type LabResult, type MedicalRecord, type Member } from './types';
+import { RECORD_TYPES, type Attachment, type DoseLog, type LabResult, type MedicalRecord, type Medication, type Member } from './types';
 
 const BUNDLE_FORMAT = 'family-health-registry';
-/** v2 added lab results; v1 files still import. */
-const BUNDLE_VERSION = 2;
+/** v2 added lab results, v3 medicines; older files still import. */
+const BUNDLE_VERSION = 3;
 const SAFE_FILE_NAME = /^[A-Za-z0-9-]+\.[A-Za-z0-9]{1,8}$/;
 
 type BundleAttachment = Attachment & { data: string };
@@ -24,6 +26,8 @@ export type RegistryBundle = {
   records: MedicalRecord[];
   attachments: BundleAttachment[];
   labResults?: LabResult[];
+  medications?: Medication[];
+  doseLogs?: DoseLog[];
 };
 
 // ---- Family data file (share with other family members) ---------------------
@@ -42,7 +46,9 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
   const records: MedicalRecord[] = [];
   const attachments: BundleAttachment[] = [];
   const labResults: LabResult[] = [];
+  const medications: Medication[] = [];
   for (const m of members) {
+    for (const { memberName: _n, memberColor: _c, ...med } of await Meds.listMedications(db, m.id)) medications.push(med);
     for (const { attachmentCount: _count, memberName: _n, memberColor: _c, ...r } of await DB.listRecords(db, m.id)) {
       records.push(r);
       labResults.push(...(await Labs.listResultsForRecord(db, r.id)));
@@ -53,6 +59,8 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
     }
   }
 
+  const doseLogs = await Meds.listAllDoseLogs(db, medications.map((m) => m.id));
+
   const bundle: RegistryBundle = {
     format: BUNDLE_FORMAT,
     version: BUNDLE_VERSION,
@@ -61,6 +69,8 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
     records,
     attachments,
     labResults,
+    medications,
+    doseLogs,
   };
 
   const label = members.length === 1 ? safeFileName(members[0].name) : 'family';
@@ -69,7 +79,13 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
   file.create();
   file.write(JSON.stringify(bundle));
   await shareFile(file.uri, 'application/json', 'Share health records');
-  return { members: members.length, records: records.length, attachments: attachments.length, labResults: labResults.length };
+  return {
+    members: members.length,
+    records: records.length,
+    attachments: attachments.length,
+    labResults: labResults.length,
+    medications: medications.length,
+  };
 }
 
 export type ImportResult = {
@@ -79,6 +95,8 @@ export type ImportResult = {
   recordsUpdated: number;
   attachmentsAdded: number;
   labResultsImported: number;
+  medicationsAdded: number;
+  medicationsUpdated: number;
 };
 
 function parseBundle(text: string): RegistryBundle {
@@ -97,7 +115,9 @@ function parseBundle(text: string): RegistryBundle {
     !Array.isArray(b.members) ||
     !Array.isArray(b.records) ||
     !Array.isArray(b.attachments) ||
-    (b.labResults !== undefined && !Array.isArray(b.labResults))
+    (b.labResults !== undefined && !Array.isArray(b.labResults)) ||
+    (b.medications !== undefined && !Array.isArray(b.medications)) ||
+    (b.doseLogs !== undefined && !Array.isArray(b.doseLogs))
   ) {
     throw new Error('The export file is incomplete or damaged.');
   }
@@ -117,6 +137,8 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
     recordsUpdated: 0,
     attachmentsAdded: 0,
     labResultsImported: 0,
+    medicationsAdded: 0,
+    medicationsUpdated: 0,
   };
   // Records whose shared copy won the merge; their lab results are taken from the file too.
   const recordsTaken = new Set<string>();
@@ -167,9 +189,66 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
         result.labResultsImported += forRecord.length;
       }
     }
+
+    for (const med of (bundle.medications ?? []).filter(isValidMedication)) {
+      if (!(await DB.getMember(db, med.memberId))) continue;
+      const existing = await Meds.getMedication(db, med.id);
+      if (!existing) {
+        // Reminders are per phone: shared medicines stay quiet here until turned on.
+        await Meds.upsertMedication(db, { ...med, remindersOn: false });
+        result.medicationsAdded++;
+      } else if (med.updatedAt > existing.updatedAt) {
+        await Meds.upsertMedication(db, { ...med, remindersOn: existing.remindersOn });
+        result.medicationsUpdated++;
+      }
+    }
+    for (const log of (bundle.doseLogs ?? []).filter(isValidDoseLog)) {
+      if (await Meds.getMedication(db, log.medicationId)) await Meds.insertDoseLogIfMissing(db, log);
+    }
   });
 
   return result;
+}
+
+const isDateText = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const isTimeText = (v: unknown) => typeof v === 'string' && /^\d{2}:\d{2}$/.test(v);
+
+function isValidMedication(v: unknown): v is Medication {
+  const m = v as Medication;
+  return (
+    !!m &&
+    typeof m.id === 'string' &&
+    typeof m.memberId === 'string' &&
+    typeof m.name === 'string' &&
+    typeof m.dose === 'string' &&
+    typeof m.instructions === 'string' &&
+    Array.isArray(m.times) &&
+    m.times.every(isTimeText) &&
+    (m.frequency === 'daily' || m.frequency === 'weekly') &&
+    Array.isArray(m.days) &&
+    m.days.every((d) => Number.isInteger(d) && d >= 0 && d <= 6) &&
+    isDateText(m.startDate) &&
+    (m.endDate === null || isDateText(m.endDate)) &&
+    (m.stock === null || (typeof m.stock === 'number' && Number.isFinite(m.stock))) &&
+    typeof m.perDose === 'number' &&
+    m.perDose > 0 &&
+    typeof m.notes === 'string' &&
+    typeof m.createdAt === 'string' &&
+    typeof m.updatedAt === 'string'
+  );
+}
+
+function isValidDoseLog(v: unknown): v is DoseLog {
+  const l = v as DoseLog;
+  return (
+    !!l &&
+    typeof l.id === 'string' &&
+    typeof l.medicationId === 'string' &&
+    isDateText(l.date) &&
+    isTimeText(l.time) &&
+    (l.status === 'taken' || l.status === 'skipped') &&
+    typeof l.loggedAt === 'string'
+  );
 }
 
 function isValidLabResult(l: unknown): l is LabResult {
@@ -258,6 +337,7 @@ export async function shareMemberSummaryPdf(db: SQLiteDatabase, memberId: string
   const m = await DB.getMember(db, memberId);
   if (!m) throw new Error('Family member not found.');
   const records = await DB.listRecords(db, memberId);
+  const meds = (await Meds.listMedications(db, memberId)).filter((md) => isCurrent(md, todayIso()));
   const latestLabs = buildSeries(await Labs.listMemberResults(db, memberId)).map((s) => ({
     name: s.testName,
     value: s.latest.value,
@@ -284,7 +364,19 @@ export async function shareMemberSummaryPdf(db: SQLiteDatabase, memberId: string
     <h2>Profile</h2><table class="grid">${profileRows(m)}</table>
     ${healthSection('Allergies', m.allergies, true)}
     ${healthSection('Medical conditions', m.conditions)}
-    ${healthSection('Current medications', m.medications)}
+    ${
+      meds.length
+        ? `<h2>Current medicines</h2><table><tr><th>Medicine</th><th>Dose</th><th>When</th></tr>${meds
+            .map(
+              (md) =>
+                `<tr><td>${escapeHtml(md.name)}</td><td>${escapeHtml(md.dose)}</td><td>${escapeHtml(
+                  [scheduleText(md), md.instructions].filter(Boolean).join(' · ')
+                )}</td></tr>`
+            )
+            .join('')}</table>`
+        : ''
+    }
+    ${healthSection(meds.length ? 'Other medication notes' : 'Current medications', m.medications)}
     ${healthSection('Notes', m.notes)}
     ${latestLabs.length ? `<h2>Latest lab results</h2>${labTable(latestLabs)}` : ''}
     <h2>Medical history (${records.length})</h2>
