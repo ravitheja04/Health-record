@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Attachment, MedicalRecord, Member } from './types';
 
 export const DATABASE_NAME = 'family-health.db';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 /** Runs once when the SQLiteProvider opens the database. */
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
@@ -53,6 +53,24 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
         createdAt TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS attachments_record ON attachments(recordId);
+    `);
+  }
+
+  if (current < 2) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS lab_results (
+        id TEXT PRIMARY KEY NOT NULL,
+        recordId TEXT NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+        testKey TEXT NOT NULL,
+        testName TEXT NOT NULL,
+        value REAL NOT NULL,
+        unit TEXT NOT NULL DEFAULT '',
+        refLow REAL,
+        refHigh REAL,
+        createdAt TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS lab_results_record ON lab_results(recordId);
+      CREATE INDEX IF NOT EXISTS lab_results_test ON lab_results(testKey);
     `);
   }
 

@@ -17,7 +17,7 @@ import { RECORD_TYPES, type Attachment, type MedicalRecord, type Member, type Re
 const TYPE_KEYS = Object.keys(RECORD_TYPES) as RecordType[];
 
 export default function EditRecordScreen() {
-  const params = useLocalSearchParams<{ id?: string; memberId?: string }>();
+  const params = useLocalSearchParams<{ id?: string; memberId?: string; type?: string }>();
   const db = useSQLiteContext();
   const insets = useSafeAreaInsets();
   const [record, setRecord] = useState<MedicalRecord | null>(null);
@@ -42,7 +42,7 @@ export default function EditRecordScreen() {
       setRecord({
         id: randomUUID(),
         memberId: params.memberId ?? '',
-        type: 'lab',
+        type: params.type && params.type in RECORD_TYPES ? (params.type as RecordType) : 'lab',
         title: '',
         date: todayIso(),
         doctor: '',
@@ -52,7 +52,7 @@ export default function EditRecordScreen() {
         updatedAt: now,
       });
     })().catch((e) => showError('Could not load record', e));
-  }, [db, params.id, params.memberId]);
+  }, [db, params.id, params.memberId, params.type]);
 
   if (!record) return null;
   const set = <K extends keyof MedicalRecord>(key: K, value: MedicalRecord[K]) => setRecord({ ...record, [key]: value });

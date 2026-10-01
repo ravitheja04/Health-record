@@ -33,6 +33,10 @@ export default function RootLayout() {
           <Stack.Screen name="member/edit" options={{ title: 'Family member', presentation: 'modal' }} />
           <Stack.Screen name="record/[id]" options={{ title: 'Record' }} />
           <Stack.Screen name="record/edit" options={{ title: 'Medical record', presentation: 'modal' }} />
+          <Stack.Screen name="record/results" options={{ title: 'Test results', presentation: 'modal' }} />
+          <Stack.Screen name="labs/[memberId]" options={{ title: 'Lab trends' }} />
+          <Stack.Screen name="labs/test" options={{ title: '' }} />
+          <Stack.Screen name="labs/compare" options={{ title: 'Compare reports' }} />
         </Stack>
       </SQLiteProvider>
     </Suspense>

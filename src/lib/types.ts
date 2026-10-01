@@ -49,6 +49,20 @@ export type Attachment = {
   createdAt: string;
 };
 
+export type LabResult = {
+  id: string;
+  recordId: string;
+  /** Canonical test id from the catalog, or `custom:<name>` for tests the user typed. */
+  testKey: string;
+  testName: string;
+  value: number;
+  unit: string;
+  /** Reference range as printed on the lab report; either end may be missing. */
+  refLow: number | null;
+  refHigh: number | null;
+  createdAt: string;
+};
+
 export const RECORD_TYPES: Record<RecordType, { label: string; icon: string; color: string }> = {
   lab: { label: 'Lab report', icon: 'flask-outline', color: '#7C3AED' },
   prescription: { label: 'Prescription', icon: 'medkit-outline', color: '#DB2777' },

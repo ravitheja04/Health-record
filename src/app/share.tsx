@@ -49,6 +49,7 @@ export default function ShareScreen() {
         `${r.membersAdded} new and ${r.membersUpdated} updated family members`,
         `${r.recordsAdded} new and ${r.recordsUpdated} updated records`,
         `${r.attachmentsAdded} files`,
+        `${r.labResultsImported} lab results`,
       ];
       Alert.alert('Import complete', lines.join('\n'));
     } catch (e) {
