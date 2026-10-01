@@ -35,11 +35,10 @@ npm test           # unit tests
 
 ## Free Android APK from GitHub
 
-Every push runs the **Android APK** workflow (`.github/workflows/android-apk.yml`) on GitHub's free runners. No Expo account is needed.
+The **Android APK** workflow (`.github/workflows/android-apk.yml`) builds the app on GitHub's free runners. No Expo account is needed. It runs only when started by hand: **Actions → Android APK → Run workflow**, choosing `main` to update the download link below.
 
 - **From `main`:** open the repo's **Releases** page on your phone, open **Latest Android build**, tap `family-health-registry.apk`, and allow your browser to install apps when Android asks.
 - **From any branch:** open **Actions → Android APK → the run → Artifacts** and download the zip with the APK (requires being signed in to GitHub).
-- You can also start a build by hand from **Actions → Android APK → Run workflow**.
 
 These APKs are signed with a development key, which is fine for personal and family use. Play Store releases need your own signing key (see below).
 
