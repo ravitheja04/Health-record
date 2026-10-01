@@ -30,6 +30,16 @@ npx tsc --noEmit   # typecheck
 npx expo lint      # lint
 ```
 
+## Free Android APK from GitHub
+
+Every push runs the **Android APK** workflow (`.github/workflows/android-apk.yml`) on GitHub's free runners. No Expo account is needed.
+
+- **From `main`:** open the repo's **Releases** page on your phone, open **Latest Android build**, tap `family-health-registry.apk`, and allow your browser to install apps when Android asks.
+- **From any branch:** open **Actions → Android APK → the run → Artifacts** and download the zip with the APK (requires being signed in to GitHub).
+- You can also start a build by hand from **Actions → Android APK → Run workflow**.
+
+These APKs are signed with a development key, which is fine for personal and family use. Play Store releases need your own signing key (see below).
+
 ## Building installable apps
 
 Builds are made in the cloud with [EAS Build](https://docs.expo.dev/build/introduction/), so you don't need Xcode or Android Studio:
