@@ -44,7 +44,8 @@
           "cameraPermission": "Allow Family Health Registry to photograph medical reports and prescriptions."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

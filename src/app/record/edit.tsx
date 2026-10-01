@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DateField } from '@/components/DateField';
 import { Button, Card, ChipSelect, colors, Field, Icon, styles } from '@/components/ui';
 import * as DB from '@/lib/db';
 import { formatBytes, persistPendingFile, removeAttachmentFiles, type PendingFile } from '@/lib/files';
@@ -98,7 +99,9 @@ export default function EditRecordScreen() {
     if (!record) return;
     if (!record.memberId) return Alert.alert('Choose a family member', 'Select who this record belongs to.');
     if (!record.title.trim()) return Alert.alert('Title required', 'Give the record a short title, e.g. “Blood test – CBC”.');
-    if (!isValidDate(record.date)) return Alert.alert('Check the date', 'Use the format YYYY-MM-DD, for example 2026-03-14.');
+    if (!isValidDate(record.date)) {
+      return Alert.alert('Check the date', 'Enter it as DD/MM/YYYY, for example 14/03/2026, or pick it from the calendar.');
+    }
 
     setSaving(true);
     try {
@@ -149,14 +152,7 @@ export default function EditRecordScreen() {
           renderLabel={(t) => RECORD_TYPES[t].label}
         />
         <Field label="Title *" value={record.title} onChangeText={(v) => set('title', v)} placeholder="e.g. Complete blood count" />
-        <Field
-          label="Date *"
-          value={record.date}
-          onChangeText={(v) => set('date', v.trim())}
-          placeholder="YYYY-MM-DD"
-          keyboardType="numbers-and-punctuation"
-          maxLength={10}
-        />
+        <DateField label="Date *" value={record.date} onChange={(v) => set('date', v ?? '')} />
         <Field label="Doctor" value={record.doctor} onChangeText={(v) => set('doctor', v)} placeholder="e.g. Dr. Mehta" />
         <Field label="Hospital / Lab / Clinic" value={record.facility} onChangeText={(v) => set('facility', v)} placeholder="e.g. City Diagnostics" />
         <Field

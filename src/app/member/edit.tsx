@@ -5,9 +5,10 @@ import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DateField } from '@/components/DateField';
 import { Button, ChipSelect, colors, Field, styles } from '@/components/ui';
 import { getMember, upsertMember } from '@/lib/db';
-import { isValidDate } from '@/lib/format';
+import { isValidDate, todayIso } from '@/lib/format';
 import { showError } from '@/lib/useQuery';
 import { BLOOD_GROUPS, GENDERS, MEMBER_COLORS, RELATIONS, type Member } from '@/lib/types';
 
@@ -50,7 +51,10 @@ export default function EditMemberScreen() {
     if (!member) return;
     if (!member.name.trim()) return Alert.alert('Name required', 'Please enter the family member’s name.');
     if (member.dob && !isValidDate(member.dob)) {
-      return Alert.alert('Check date of birth', 'Use the format YYYY-MM-DD, for example 1988-04-23.');
+      return Alert.alert('Check date of birth', 'Enter it as DD/MM/YYYY, for example 23/04/1988, or pick it from the calendar.');
+    }
+    if (member.dob && member.dob > todayIso()) {
+      return Alert.alert('Check date of birth', 'The date of birth can’t be in the future.');
     }
     setSaving(true);
     try {
@@ -72,14 +76,7 @@ export default function EditMemberScreen() {
         contentContainerStyle={[styles.content, { gap: 16, paddingBottom: insets.bottom + 24 }]}>
         <Field label="Full name *" value={member.name} onChangeText={(v) => set('name', v)} placeholder="e.g. Priya Sharma" autoFocus={!id} />
         <ChipSelect label="Relation" options={RELATIONS} value={member.relation} onChange={(v) => set('relation', v ?? '')} />
-        <Field
-          label="Date of birth"
-          value={member.dob ?? ''}
-          onChangeText={(v) => set('dob', v.trim() ? v.trim() : null)}
-          placeholder="YYYY-MM-DD"
-          keyboardType="numbers-and-punctuation"
-          maxLength={10}
-        />
+        <DateField label="Date of birth" value={member.dob} onChange={(v) => set('dob', v)} pickYearFirst allowFuture={false} />
         <ChipSelect label="Gender" options={GENDERS} value={member.gender} onChange={(v) => set('gender', v)} />
         <ChipSelect label="Blood group" options={BLOOD_GROUPS} value={member.bloodGroup} onChange={(v) => set('bloodGroup', v)} />
         <Field
