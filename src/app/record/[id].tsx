@@ -4,10 +4,15 @@ import { useCallback, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { labColors } from '@/components/LabChart';
+import { StatusChip } from '@/components/LabRows';
 import { Button, Card, colors, EmptyState, Icon, InfoRow, SectionTitle, styles } from '@/components/ui';
 import { deleteRecord, getMember, getRecord, listAttachments } from '@/lib/db';
 import { attachmentFile, formatBytes, removeAttachmentFiles, shareFile } from '@/lib/files';
 import { formatDate } from '@/lib/format';
+import { formatRange, formatValue, statusOf } from '@/lib/labAnalysis';
+import { listResultsForRecord } from '@/lib/labs';
+import { getTestDef } from '@/lib/labTests';
 import { shareRecordPdf } from '@/lib/share';
 import { showError, useQuery } from '@/lib/useQuery';
 import { RECORD_TYPES, type Attachment } from '@/lib/types';
@@ -23,12 +28,13 @@ export default function RecordScreen() {
       record,
       member: record ? await getMember(db, record.memberId) : null,
       attachments: record ? await listAttachments(db, id) : [],
+      results: record ? await listResultsForRecord(db, id) : [],
     };
   }, [db, id]);
   const { data } = useQuery(load);
 
   if (!data) return null;
-  const { record, member, attachments } = data;
+  const { record, member, attachments, results } = data;
   if (!record) {
     return <EmptyState icon="alert-circle-outline" title="Record not found" message="This record may have been deleted." />;
   }
@@ -112,6 +118,69 @@ export default function RecordScreen() {
               {record.notes}
             </Text>
           </Card>
+        ) : null}
+
+        {record.type === 'lab' || results.length > 0 ? (
+          <>
+            <SectionTitle
+              action={
+                results.length > 0 ? (
+                  <Pressable hitSlop={8} onPress={() => router.push({ pathname: '/labs/[memberId]', params: { memberId: record.memberId } })}>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>See trends</Text>
+                  </Pressable>
+                ) : undefined
+              }>
+              Test results ({results.length})
+            </SectionTitle>
+            {results.length > 0 ? (
+              <Card style={{ padding: 0, overflow: 'hidden' }}>
+                {results.map((r, i) => {
+                  const status = statusOf(r.value, r.refLow, r.refHigh);
+                  const out = status === 'high' || status === 'low';
+                  const range = formatRange(r.refLow, r.refHigh);
+                  return (
+                    <Pressable
+                      key={r.id}
+                      accessibilityRole="button"
+                      onPress={() =>
+                        router.push({ pathname: '/labs/test', params: { memberId: record.memberId, testKey: r.testKey } })
+                      }
+                      style={({ pressed }) => [
+                        {
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 10,
+                          paddingHorizontal: 14,
+                          paddingVertical: 10,
+                          borderBottomWidth: i === results.length - 1 ? 0 : 1,
+                          borderBottomColor: '#F1F5F9',
+                        },
+                        pressed && styles.pressed,
+                      ]}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <Text style={[styles.body, { fontWeight: '600' }]}>{getTestDef(r.testKey)?.name ?? r.testName}</Text>
+                          <StatusChip status={status} />
+                        </View>
+                        {range ? <Text style={[styles.subtitle, { marginTop: 0, fontSize: 12 }]}>Range {range}</Text> : null}
+                      </View>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: out ? labColors.out : colors.text }}>
+                        {formatValue(r.value)} <Text style={{ fontSize: 12, fontWeight: '500' }}>{r.unit}</Text>
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </Card>
+            ) : (
+              <Text style={styles.subtitle}>Type in the values from this report to track them over time.</Text>
+            )}
+            <Button
+              title={results.length ? 'Edit test results' : 'Add test results'}
+              icon={results.length ? 'create-outline' : 'add-outline'}
+              variant="secondary"
+              onPress={() => router.push({ pathname: '/record/results', params: { recordId: id } })}
+            />
+          </>
         ) : null}
 
         <SectionTitle>Attachments ({attachments.length})</SectionTitle>

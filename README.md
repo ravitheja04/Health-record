@@ -9,6 +9,7 @@ Built with [Expo](https://expo.dev) (SDK 57, React Native, TypeScript, Expo Rout
 - **Family members**: a profile for each person with relation, date of birth, gender, blood group, allergies, medical conditions, current medications, emergency contact and notes. Allergies are highlighted wherever the person appears.
 - **Medical records**: lab reports, prescriptions, doctor visits, vaccinations, scans/imaging, surgeries/procedures, insurance and other documents. Each record has a date, doctor, hospital/lab and notes/results.
 - **Attachments**: photograph a report with the camera, pick photos, or attach PDFs and images from Files/Drive/iCloud. Files are copied into the app's private storage.
+- **Lab trends**: type in the values from each lab report (about 30 common tests, grouped into panels like Diabetes, Lipid profile, Thyroid; or any custom test). Each person gets a trends view showing which tests are out of the report's range, a chart per test over time with the normal range shaded, how often it is tested, and a side-by-side comparison of any two reports. Changes are marked as moving toward or away from the report's range; the app never diagnoses.
 - **Search** across all records by title, doctor, hospital, notes or family member name.
 - **Share with family**: export the whole family, or a single person, as one data file (records and attachments included). Send it by WhatsApp, email, AirDrop, Nearby Share, Drive, and so on. Family members use **Import data file** to merge it into their own app. New entries are added, and when two phones edited the same entry the newest edit wins.
 - **Share with doctors**: generate a clean PDF health summary for a person, or a PDF of a single record with its images embedded.
@@ -28,6 +29,7 @@ Checks:
 ```bash
 npx tsc --noEmit   # typecheck
 npx expo lint      # lint
+npm test           # unit tests
 ```
 
 ## Free Android APK from GitHub

@@ -9,6 +9,7 @@ import { Avatar, Button, Card, ChipSelect, colors, EmptyState, Icon, InfoRow, Se
 import { deleteMember, getMember, listRecords } from '@/lib/db';
 import { removeAttachmentFiles } from '@/lib/files';
 import { ageFrom, formatDate } from '@/lib/format';
+import { countMemberResults } from '@/lib/labs';
 import { shareMemberSummaryPdf, shareRegistryBundle } from '@/lib/share';
 import { showError, useQuery } from '@/lib/useQuery';
 import { RECORD_TYPES, type RecordType } from '@/lib/types';
@@ -21,7 +22,10 @@ export default function MemberScreen() {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<RecordType | null>(null);
   const [busy, setBusy] = useState<'pdf' | 'file' | null>(null);
-  const load = useCallback(async () => ({ member: await getMember(db, id), records: await listRecords(db, id) }), [db, id]);
+  const load = useCallback(
+    async () => ({ member: await getMember(db, id), records: await listRecords(db, id), labTests: await countMemberResults(db, id) }),
+    [db, id]
+  );
   const { data } = useQuery(load);
 
   const member = data?.member;
@@ -135,6 +139,20 @@ export default function MemberScreen() {
           icon="add-outline"
           onPress={() => router.push({ pathname: '/record/edit', params: { memberId: id } })}
         />
+        <Card onPress={() => router.push({ pathname: '/labs/[memberId]', params: { memberId: id } })}>
+          <View style={styles.row}>
+            <Icon name="analytics-outline" color="#7C3AED" size={24} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Lab trends</Text>
+              <Text style={styles.subtitle}>
+                {data.labTests > 0
+                  ? `${data.labTests} test${data.labTests === 1 ? '' : 's'} tracked across reports`
+                  : 'Track test results across reports'}
+              </Text>
+            </View>
+            <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
+          </View>
+        </Card>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Button style={{ flex: 1 }} variant="secondary" title="Share PDF" icon="document-outline" loading={busy === 'pdf'} onPress={() => run('pdf')} />
           <Button style={{ flex: 1 }} variant="secondary" title="Send to family" icon="share-social-outline" loading={busy === 'file'} onPress={() => run('file')} />

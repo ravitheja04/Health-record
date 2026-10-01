@@ -46,3 +46,40 @@ export function escapeHtml(value: string | null | undefined) {
 export function safeFileName(value: string) {
   return value.replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'export';
 }
+
+/** "1988-04-23" -> "23/04/1988" (Indian day-first format). Anything else is returned as typed. */
+export function isoToIndian(value: string | null | undefined) {
+  if (!value) return '';
+  if (!isValidDate(value)) return value;
+  const [y, m, d] = value.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** "23/04/1988" (also 23-04-1988 or 23.04.1988) -> "1988-04-23", or null if it is not a real date. */
+export function indianToIso(text: string) {
+  const match = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(text.trim());
+  if (!match) return null;
+  const iso = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+  return isValidDate(iso) ? iso : null;
+}
+
+/**
+ * Inserts the slashes while someone types digits: "230419" -> "23/04/19".
+ * A slash only appears once a digit follows it, so backspace never gets stuck on one.
+ */
+export function maskIndianDate(text: string) {
+  const digits = text.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+export function isoToDate(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+export function dateToIso(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
