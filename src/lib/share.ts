@@ -23,7 +23,8 @@ const BUNDLE_FORMAT = 'family-health-registry';
 const BUNDLE_VERSION = 6;
 const SAFE_FILE_NAME = /^[A-Za-z0-9-]+\.[A-Za-z0-9]{1,8}$/;
 
-type BundleAttachment = Attachment & { data: string };
+/** `data` is the file as base64; family sync leaves it out and sends files separately. */
+export type BundleAttachment = Attachment & { data?: string };
 
 export type RegistryBundle = {
   format: typeof BUNDLE_FORMAT;
@@ -48,6 +49,30 @@ export type RegistryBundle = {
  * over WhatsApp, email, AirDrop, Nearby Share, Drive, etc.
  */
 export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string[]) {
+  const bundle = await buildRegistryBundle(db, memberIds);
+  const { members, records, attachments, labResults = [], medications = [], vaccinations = [], vitals = [] } = bundle;
+  const label = members.length === 1 ? safeFileName(members[0].name) : 'family';
+  const file = new File(Paths.cache, `${label}-health-records-${todayIso()}.json`);
+  if (file.exists) file.delete();
+  file.create();
+  file.write(JSON.stringify(bundle));
+  await shareFile(file.uri, 'application/json', 'Share health records');
+  return {
+    members: members.length,
+    records: records.length,
+    attachments: attachments.length,
+    labResults: labResults.length,
+    medications: medications.length,
+    vaccinations: vaccinations.length,
+    vitals: vitals.length,
+  };
+}
+
+/**
+ * Everything about the given members (or everyone) as one bundle. With
+ * `withFiles: false` attachments are listed without their content.
+ */
+export async function buildRegistryBundle(db: SQLiteDatabase, memberIds?: string[], withFiles = true): Promise<RegistryBundle> {
   const allMembers = await DB.listMembers(db);
   const members = allMembers
     .filter((m) => !memberIds || memberIds.includes(m.id))
@@ -68,6 +93,10 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
       records.push(r);
       labResults.push(...(await Labs.listResultsForRecord(db, r.id)));
       for (const a of await DB.listAttachments(db, r.id)) {
+        if (!withFiles) {
+          attachments.push(a);
+          continue;
+        }
         const data = readAttachmentBase64(a);
         if (data !== null) attachments.push({ ...a, data });
       }
@@ -92,21 +121,7 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
     vitals,
   };
 
-  const label = members.length === 1 ? safeFileName(members[0].name) : 'family';
-  const file = new File(Paths.cache, `${label}-health-records-${todayIso()}.json`);
-  if (file.exists) file.delete();
-  file.create();
-  file.write(JSON.stringify(bundle));
-  await shareFile(file.uri, 'application/json', 'Share health records');
-  return {
-    members: members.length,
-    records: records.length,
-    attachments: attachments.length,
-    labResults: labResults.length,
-    medications: medications.length,
-    vaccinations: vaccinations.length,
-    vitals: vitals.length,
-  };
+  return bundle;
 }
 
 export type ImportResult = {
@@ -130,6 +145,10 @@ function parseBundle(text: string): RegistryBundle {
   } catch {
     throw new Error('This file is not a Family Health Registry export.');
   }
+  return validateBundle(data);
+}
+
+export function validateBundle(data: unknown): RegistryBundle {
   const b = data as Partial<RegistryBundle>;
   if (b?.format !== BUNDLE_FORMAT) throw new Error('This file is not a Family Health Registry export.');
   if (typeof b.version !== 'number' || b.version > BUNDLE_VERSION) {
@@ -156,7 +175,16 @@ function parseBundle(text: string): RegistryBundle {
  * sides have the same member or record, the most recently edited copy wins.
  */
 export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Promise<ImportResult> {
-  const bundle = parseBundle(await new File(uri).text());
+  return (await mergeRegistryBundle(db, parseBundle(await new File(uri).text()))).result;
+}
+
+/**
+ * Merges a bundle into this phone. Attachments that come without their file
+ * content (family sync) and aren't on this phone yet are returned, for the
+ * caller to fetch and add with `addSyncedAttachment`.
+ */
+export async function mergeRegistryBundle(db: SQLiteDatabase, bundle: RegistryBundle) {
+  const missingFiles: Attachment[] = [];
   const result: ImportResult = {
     membersAdded: 0,
     membersUpdated: 0,
@@ -201,10 +229,14 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
 
     for (const { data, ...a } of bundle.attachments) {
       // The file name becomes a path on disk, so never trust it from a shared file.
-      if (!SAFE_FILE_NAME.test(a.fileName) || typeof data !== 'string') continue;
+      if (!SAFE_FILE_NAME.test(a.fileName)) continue;
       if (!(await DB.getRecord(db, a.recordId))) continue;
       const exists = await db.getFirstAsync('SELECT id FROM attachments WHERE id = ?', a.id);
       if (exists) continue;
+      if (typeof data !== 'string') {
+        missingFiles.push(a);
+        continue;
+      }
       writeAttachmentFromBase64(a, data);
       await DB.insertAttachment(db, a);
       result.attachmentsAdded++;
@@ -266,7 +298,16 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
     }
   });
 
-  return result;
+  return { result, missingFiles };
+}
+
+/** Adds an attachment whose file arrived separately (family sync). */
+export async function addSyncedAttachment(db: SQLiteDatabase, a: Attachment, base64: string) {
+  if (!SAFE_FILE_NAME.test(a.fileName) || !(await DB.getRecord(db, a.recordId))) return false;
+  if (await db.getFirstAsync('SELECT id FROM attachments WHERE id = ?', a.id)) return false;
+  writeAttachmentFromBase64(a, base64);
+  await DB.insertAttachment(db, a);
+  return true;
 }
 
 const isDateText = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);

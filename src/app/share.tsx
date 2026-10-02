@@ -1,4 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
+import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
@@ -69,6 +70,17 @@ export default function ShareScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
+      <Card onPress={() => router.push('/sync')}>
+        <View style={styles.row}>
+          <Icon name="sync-outline" color={colors.primary} size={26} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Family sync (automatic)</Text>
+            <Text style={styles.subtitle}>Keep phones in step through Google Drive, encrypted. No files to pass around.</Text>
+          </View>
+          <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
+        </View>
+      </Card>
+
       <Card>
         <View style={styles.row}>
           <Icon name="cloud-upload-outline" color={colors.primary} size={26} />

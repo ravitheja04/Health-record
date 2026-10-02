@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Attachment, MedicalRecord, Member } from './types';
 
 export const DATABASE_NAME = 'family-health.db';
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 /** Runs once when the SQLiteProvider opens the database. */
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
@@ -160,6 +160,17 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY NOT NULL,
         value TEXT NOT NULL
+      );
+    `);
+  }
+
+  if (current < 7) {
+    // Family sync: which Drive file holds each attachment, uploaded by this phone
+    // or received from family. This phone only, never shared.
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS sync_files (
+        attachmentId TEXT PRIMARY KEY NOT NULL,
+        driveFileId TEXT NOT NULL
       );
     `);
   }

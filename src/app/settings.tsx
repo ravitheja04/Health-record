@@ -109,6 +109,16 @@ export default function SettingsScreen() {
       </Card>
 
       <SectionTitle>Data</SectionTitle>
+      <Card onPress={() => router.push('/sync')}>
+        <View style={styles.row}>
+          <Icon name="sync-outline" color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Family sync (Google Drive)</Text>
+            <Text style={styles.subtitle}>Keep the family’s phones in step automatically, encrypted.</Text>
+          </View>
+          <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
+        </View>
+      </Card>
       <Card onPress={() => router.push('/share')}>
         <View style={styles.row}>
           <Icon name="share-social-outline" color={colors.primary} />

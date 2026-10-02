@@ -22,6 +22,7 @@ Built with [Expo](https://expo.dev) (SDK 57, React Native, TypeScript, Expo Rout
 - **Dark mode**: follows the phone, or choose Light / Dark in Settings.
 - **App lock**: optional fingerprint, face or phone PIN lock (Settings), re-locking after 1, 5 or 15 minutes away. The screen is hidden in the app switcher while locked.
 - **Records**: every record in the family in one list, searchable by title, doctor, hospital, notes or family member, and filterable by person and type.
+- **Family sync (Google Drive)**: phones stay in step automatically. Each phone keeps an AES-256-GCM encrypted copy of its records (and each photo/PDF, uploaded once) in its own Google Drive and reads the other family phones' copies; the family key only travels in a QR/text family code, so Google sees scrambled data. Free, using only Drive's `drive.file` permission. One-time setup: [docs/google-drive-setup.md](docs/google-drive-setup.md).
 - **Share with family**: export the whole family, or a single person, as one data file (records and attachments included). Send it by WhatsApp, email, AirDrop, Nearby Share, Drive, and so on. Family members use **Import data file** to merge it into their own app. New entries are added, and when two phones edited the same entry the newest edit wins.
 - **Share with doctors**: generate a clean PDF health summary for a person, or a PDF of a single record with its images embedded.
 - **Private by default**: data lives on the device in SQLite. There are no accounts, no servers and no analytics.

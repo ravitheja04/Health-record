@@ -3,7 +3,7 @@ import { DarkTheme, DefaultTheme, router, Stack, ThemeProvider, type Href } from
 import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { Suspense, useEffect, useSyncExternalStore } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, AppState, View } from 'react-native';
 
 import { AppLock } from '@/components/AppLock';
 import { getScheme, setThemePref, subscribeTheme } from '@/components/theme';
@@ -11,6 +11,7 @@ import { colors } from '@/components/ui';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/lib/db';
 import { configureNotifications, syncRemindersQuietly } from '@/lib/reminders';
 import { getThemePref } from '@/lib/settings';
+import { syncQuietly } from '@/lib/sync';
 
 configureNotifications();
 
@@ -30,6 +31,19 @@ function Reminders() {
       setTimeout(() => open(last), 0);
     }
     const sub = Notifications.addNotificationResponseReceivedListener(open);
+    return () => sub.remove();
+  }, [db]);
+  return null;
+}
+
+/** Family sync: fetch the family's changes and send this phone's when the app opens or comes back. */
+function SyncOnOpen() {
+  const db = useSQLiteContext();
+  useEffect(() => {
+    syncQuietly(db);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') syncQuietly(db);
+    });
     return () => sub.remove();
   }, [db]);
   return null;
@@ -68,6 +82,7 @@ export default function RootLayout() {
           <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
           <SavedTheme />
           <Reminders />
+        <SyncOnOpen />
           {/* Keyed by theme so every screen redraws with the new colours. */}
           <Stack
             key={scheme}
@@ -78,6 +93,8 @@ export default function RootLayout() {
             }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Home' }} />
             <Stack.Screen name="share" options={{ title: 'Share & Sync', presentation: 'modal' }} />
+          <Stack.Screen name="sync/index" options={{ title: 'Family sync' }} />
+          <Stack.Screen name="sync/scan" options={{ title: 'Scan family code' }} />
             <Stack.Screen name="member/[id]" options={{ title: '' }} />
             <Stack.Screen name="member/edit" options={{ title: 'Family member', presentation: 'modal' }} />
             <Stack.Screen name="record/[id]" options={{ title: 'Record' }} />

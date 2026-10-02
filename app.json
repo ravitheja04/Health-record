@@ -71,6 +71,14 @@
             }
           ]
         }
+      ],
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Family Health Registry to photograph reports and scan family sync codes.",
+          "recordAudioAndroid": false
+        }
       ]
     ]
   }
