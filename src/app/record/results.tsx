@@ -61,7 +61,7 @@ export default function ResultsScreen() {
   const [lastByTest, setLastByTest] = useState<Map<string, LabResult>>(new Map());
   const [query, setQuery] = useState('');
   const [saving, setSaving] = useState(false);
-  const [pdfs, setPdfs] = useState<Attachment[]>([]);
+  const [readable, setReadable] = useState<Attachment[]>([]);
   const [imported, setImported] = useState<{ labName: string; count: number } | null>(null);
   const [notes, setNotes] = useState<Map<string, string>>(new Map());
   const loaded = useRef(false);
@@ -103,7 +103,9 @@ export default function ResultsScreen() {
       const map = new Map<string, LabResult>();
       for (const h of history) if (h.recordId !== recordId) map.set(h.testKey, h);
       setLastByTest(map);
-      setPdfs((await listAttachments(db, recordId)).filter((a) => a.mimeType === 'application/pdf' || a.fileName.endsWith('.pdf')));
+      // PDFs first: they read more exactly than photos.
+      const files = (await listAttachments(db, recordId)).filter((a) => a.mimeType === 'application/pdf' || a.fileName.endsWith('.pdf') || a.mimeType.startsWith('image/'));
+      setReadable(files.sort((a, b) => Number(b.mimeType === 'application/pdf') - Number(a.mimeType === 'application/pdf')));
       loaded.current = true;
       // Just created from a report PDF: fill in what was read from it.
       const report = takePendingImport(recordId);
@@ -218,12 +220,12 @@ export default function ResultsScreen() {
             report or typical values, so check them.
           </Text>
         )}
-        {pdfs.length && !imported ? (
+        {readable.length && !imported ? (
           <Button
-            title="Read values from the attached PDF"
+            title={readable[0].mimeType.startsWith('image/') ? 'Read values from the attached photo' : 'Read values from the attached PDF'}
             icon="document-text-outline"
             variant="secondary"
-            onPress={() => router.push({ pathname: '/record/import', params: { recordId, attachmentId: pdfs[0].id } })}
+            onPress={() => router.push({ pathname: '/record/import', params: { recordId, attachmentId: readable[0].id } })}
           />
         ) : null}
 

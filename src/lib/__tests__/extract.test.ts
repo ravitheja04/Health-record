@@ -2,8 +2,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+import { estimateSkew, fixNumberToken, ocrToItems } from '../extract/ocr';
 import { matchMember, parseReport, type ExtractedReport } from '../extract/parseReport';
 import { parseRange, parseReportDate, parseValue, tidyUnit } from '../extract/values';
+import { photoOf } from './fixtures/ocrPhoto';
 import { buildPdf, readItems, type FixtureLine } from './fixtures/reportPdf';
 
 async function extract(pages: FixtureLine[][]) {
@@ -321,4 +323,57 @@ test('matchMember picks the family member named on the report', () => {
   assert.equal(matchMember('Anu', members)?.id, '3');
   assert.equal(matchMember('Someone Else', members), null);
   assert.equal(matchMember(null, members), null);
+});
+
+// ---- Photos and scanned pages (OCR) ------------------------------------------
+
+const fromPhotos = (pages: FixtureLine[][], opts: Parameters<typeof photoOf>[1]) =>
+  parseReport(pages.flatMap((lines, i) => ocrToItems(photoOf(lines, opts), i + 1)), 'ocr');
+
+test('photo of an Apollo report, tilted 3° with OCR typos', () => {
+  const r = fromPhotos(apolloPages, {
+    degrees: 3,
+    typos: { '13.2': 'l3.2', '6.4': '6,4', '212': '2l2', '18.5': '1B.5', '0.34-5.60': '0.34-5.6O' },
+  });
+  assert.equal(r.source, 'ocr');
+  assert.equal(r.labId, 'apollo');
+  assert.equal(r.patientName, 'Ravi Kumar');
+  assert.equal(r.collectedDate, '2026-09-12');
+  assert.equal(row(r, 'hemoglobin').value, 13.2); // "l3.2"
+  assert.equal(row(r, 'hba1c').value, 6.4); // "6,4"
+  assert.equal(row(r, 'chol_total').value, 212); // "2l2"
+  assert.equal(row(r, 'chol_total').refHigh, 200);
+  assert.equal(row(r, 'platelets').value, 185000);
+  assert.equal(row(r, 'tsh').refHigh, 5.6); // "5.6O"
+  assert.ok(!r.rows.some((x) => x.testKey === 'vitamin_d' && x.value === 18.5), '"1B.5" is not silently guessed');
+  assert.ok(!r.rows.some((x) => /^(?:non diabetic|prediabetes|diabetes)/i.test(x.printedName)));
+});
+
+test('photo of a Tata 1mg report, tilted the other way', () => {
+  const r = fromPhotos(tataPages, { degrees: -2.5 });
+  assert.equal(r.labId, 'tata1mg');
+  assert.equal(r.gender, 'female');
+  assert.deepEqual([row(r, 'hba1c').value, row(r, 'hba1c').flag, row(r, 'hba1c').refHigh], [6.9, 'high', 5.7]);
+  assert.deepEqual([row(r, 'hemoglobin').refLow, row(r, 'hemoglobin').refHigh], [12, 15]);
+  assert.equal(row(r, 'tsh').valueText, '<0.01');
+  assert.equal(r.rows.length, 11);
+});
+
+test('straightening: skew is measured from the words on each line', () => {
+  for (const degrees of [-6, -2, 0, 1.5, 4]) {
+    const measured = (estimateSkew(photoOf(apolloPages[0], { degrees })) * 180) / Math.PI;
+    assert.ok(Math.abs(measured - degrees) < 0.3, `${degrees}° measured as ${measured.toFixed(2)}°`);
+  }
+});
+
+test('fixNumberToken repairs digits OCR confuses, and leaves words alone', () => {
+  assert.equal(fixNumberToken('1O.5'), '10.5');
+  assert.equal(fixNumberToken('l3.2'), '13.2');
+  assert.equal(fixNumberToken('13,5'), '13.5');
+  assert.equal(fixNumberToken('1,85,000'), '1,85,000');
+  assert.equal(fixNumberToken('<O.01'), '<0.01');
+  assert.equal(fixNumberToken('B12'), 'B12');
+  assert.equal(fixNumberToken('T3'), 'T3');
+  assert.equal(fixNumberToken('IU/L'), 'IU/L');
+  assert.equal(fixNumberToken('Oil'), 'Oil');
 });

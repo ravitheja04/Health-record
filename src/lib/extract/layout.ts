@@ -27,7 +27,9 @@ export type Line = {
 };
 
 /** Groups text into lines (top to bottom) and each line into cells (left to right). */
-export function buildLines(items: TextItem[]): Line[] {
+export function buildLines(items: TextItem[], options: { lineTolerance?: number } = {}): Line[] {
+  // Text PDFs are exact; OCR boxes wobble a little more.
+  const tolerance = options.lineTolerance ?? 0.4;
   const words = items.filter((i) => i.str.trim() && i.h > 0);
   const byPage = new Map<number, TextItem[]>();
   for (const w of words) byPage.set(w.page, [...(byPage.get(w.page) ?? []), w]);
@@ -40,7 +42,7 @@ export function buildLines(items: TextItem[]): Line[] {
       const group = groups[groups.length - 1];
       // Same line when the baselines are within ~40% of the text height; subscripts and
       // slightly offset columns still land together.
-      if (group && Math.abs(group[0].y - item.y) <= Math.max(2, 0.4 * Math.min(group[0].h, item.h))) group.push(item);
+      if (group && Math.abs(group[0].y - item.y) <= Math.max(2, tolerance * Math.min(group[0].h, item.h))) group.push(item);
       else groups.push([item]);
     }
     for (const group of groups) {

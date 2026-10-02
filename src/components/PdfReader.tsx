@@ -1,4 +1,4 @@
-import { File } from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { useCallback, useRef, useState, type ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
@@ -23,6 +23,9 @@ export class PdfReadError extends Error {
 }
 
 const MAX_PAGES = 40;
+/** Scanned PDFs are turned into page images for OCR; each is a few hundred KB. */
+const MAX_SCAN_PAGES = 10;
+const SCAN_WIDTH = 1800;
 
 // The page only defines functions; pdf.js itself is injected once it loads, so
 // its code never passes through the HTML parser.
@@ -39,7 +42,7 @@ window.boot = async (lib, worker) => {
     post({ type: 'fatal', message: String((e && e.message) || e) });
   }
 };
-window.readPdf = async (id, base64, password) => {
+window.readPdf = async (id, base64, password, mode) => {
   let task = null;
   try {
     const raw = atob(base64);
@@ -47,6 +50,26 @@ window.readPdf = async (id, base64, password) => {
     for (let i = 0; i < raw.length; i++) data[i] = raw.charCodeAt(i);
     task = pdfjs.getDocument({ data, password: password || undefined, isEvalSupported: false, disableFontFace: true, verbosity: 0 });
     const pdf = await task.promise;
+    if (mode === 'images') {
+      // A scanned PDF: draw each page so the phone's OCR can read it.
+      const pages = [];
+      for (let n = 1; n <= Math.min(pdf.numPages, ${MAX_SCAN_PAGES}); n++) {
+        const page = await pdf.getPage(n);
+        const base = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: Math.min(4, ${SCAN_WIDTH} / base.width) });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: ctx, canvas, viewport }).promise;
+        pages.push(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
+        page.cleanup();
+      }
+      post({ type: 'images', id, pages });
+      return;
+    }
     const items = [];
     for (let n = 1; n <= Math.min(pdf.numPages, ${MAX_PAGES}); n++) {
       const page = await pdf.getPage(n);
@@ -68,7 +91,8 @@ window.readPdf = async (id, base64, password) => {
 post({ type: 'loaded' });
 </script></body></html>`;
 
-type Pending = { resolve: (items: TextItem[]) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> };
+type Reply = { items?: TextItem[]; pages?: string[] };
+type Pending = { resolve: (reply: Reply) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> };
 type Deferred = { promise: Promise<void>; resolve: () => void; reject: (e: Error) => void };
 
 function deferred(): Deferred {
@@ -82,10 +106,15 @@ function deferred(): Deferred {
 }
 
 /**
- * Returns `read(uri, password?)` and an element the screen must render. The
- * WebView is only created the first time a PDF is read.
+ * Returns `read(uri, password?)` for the PDF's text, `renderPages(uri,
+ * password?)` for page images of a scanned PDF (as JPEG files), and an element
+ * the screen must render. The WebView is only created when first needed.
  */
-export function usePdfReader(): { element: ReactElement | null; read: (uri: string, password?: string) => Promise<TextItem[]> } {
+export function usePdfReader(): {
+  element: ReactElement | null;
+  read: (uri: string, password?: string) => Promise<TextItem[]>;
+  renderPages: (uri: string, password?: string) => Promise<string[]>;
+} {
   const webview = useRef<WebView>(null);
   const ready = useRef<Deferred | null>(null);
   const pending = useRef(new Map<string, Pending>());
@@ -93,7 +122,7 @@ export function usePdfReader(): { element: ReactElement | null; read: (uri: stri
   const [mounted, setMounted] = useState(false);
 
   const onMessage = useCallback((event: WebViewMessageEvent) => {
-    let msg: { type: string; id?: string; items?: TextItem[]; code?: PdfReadErrorCode; message?: string };
+    let msg: { type: string; id?: string; items?: TextItem[]; pages?: string[]; code?: PdfReadErrorCode; message?: string };
     try {
       msg = JSON.parse(event.nativeEvent.data);
     } catch {
@@ -119,11 +148,11 @@ export function usePdfReader(): { element: ReactElement | null; read: (uri: stri
     if (!job || !msg.id) return;
     pending.current.delete(msg.id);
     clearTimeout(job.timer);
-    if (msg.type === 'result') job.resolve(msg.items ?? []);
+    if (msg.type === 'result' || msg.type === 'images') job.resolve({ items: msg.items, pages: msg.pages });
     else job.reject(new PdfReadError(msg.code ?? 'unreadable', msg.message ?? 'Could not read this PDF.'));
   }, []);
 
-  const read = useCallback(async (uri: string, password?: string) => {
+  const run = useCallback(async (uri: string, password: string | undefined, mode: 'text' | 'images') => {
     if (!ready.current) {
       ready.current = deferred();
       setMounted(true);
@@ -131,15 +160,33 @@ export function usePdfReader(): { element: ReactElement | null; read: (uri: stri
     await ready.current.promise;
     const base64 = await new File(uri).base64();
     const id = String(++nextId.current);
-    return new Promise<TextItem[]>((resolve, reject) => {
+    return new Promise<Reply>((resolve, reject) => {
       const timer = setTimeout(() => {
         pending.current.delete(id);
         reject(new PdfReadError('timeout', 'Reading the PDF took too long.'));
-      }, 60_000);
+      }, mode === 'images' ? 120_000 : 60_000);
       pending.current.set(id, { resolve, reject, timer });
-      webview.current?.injectJavaScript(`window.readPdf(${JSON.stringify(id)}, ${JSON.stringify(base64)}, ${JSON.stringify(password ?? null)}); true;`);
+      webview.current?.injectJavaScript(
+        `window.readPdf(${JSON.stringify(id)}, ${JSON.stringify(base64)}, ${JSON.stringify(password ?? null)}, ${JSON.stringify(mode)}); true;`
+      );
     });
   }, []);
+
+  const read = useCallback(async (uri: string, password?: string) => (await run(uri, password, 'text')).items ?? [], [run]);
+
+  const renderPages = useCallback(
+    async (uri: string, password?: string) => {
+      const { pages = [] } = await run(uri, password, 'images');
+      const stamp = Date.now();
+      return pages.map((data, i) => {
+        const file = new File(Paths.cache, `scan-${stamp}-${i + 1}.jpg`);
+        file.create({ overwrite: true });
+        file.write(data, { encoding: 'base64' });
+        return file.uri;
+      });
+    },
+    [run]
+  );
 
   const element = mounted ? (
     <View style={hidden} pointerEvents="none">
@@ -154,7 +201,7 @@ export function usePdfReader(): { element: ReactElement | null; read: (uri: stri
     </View>
   ) : null;
 
-  return { element, read };
+  return { element, read, renderPages };
 }
 
 const hidden = StyleSheet.flatten([StyleSheet.absoluteFill, { width: 1, height: 1, opacity: 0 }]);

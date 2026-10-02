@@ -37,6 +37,8 @@ export type ExtractedReport = {
   skipped: { name: string; value: string }[];
   /** False for scanned (image-only) PDFs, which have no text to read. */
   hasText: boolean;
+  /** Read from a text PDF, or by OCR from a photo / scanned page (less exact). */
+  source: 'pdf' | 'ocr';
 };
 
 type Column = { kind: ColumnKind; x0: number; x1: number };
@@ -57,8 +59,8 @@ const META_LINE = /\b(?:uhid|mr\s*no|age|gender|sex|patient|name|collected|recei
 const BAND_NAME = /^(?:normal|non[\s-]?diabetic|pre[\s-]?diabet\w*|diabet\w*|desirable|borderline(?:\s+high)?|high|very\s+high|low|near\s+optimal|optimal|above\s+optimal|deficien\w*|insufficien\w*|sufficien\w*|toxic\w*|adults?|child(?:ren)?|infants?|new\s*borns?|males?|females?|men|women|pregnan\w*|(?:first|second|third|1st|2nd|3rd)\s+trimester|good\s+control|poor\s+control|fair\s+control|target|(?:low|moderate|high|average)\s+risk)\s*(?:[:\-–(<>≤≥=\d]|$)/i;
 const NOTES_HEADING = /^(?:interpretation|notes?|comments?|clinical\s+significance|remarks?)\b/i;
 
-export function parseReport(items: TextItem[]): ExtractedReport {
-  const lines = buildLines(items);
+export function parseReport(items: TextItem[], source: 'pdf' | 'ocr' = 'pdf'): ExtractedReport {
+  const lines = buildLines(items, { lineTolerance: source === 'ocr' ? 0.5 : 0.4 });
   const profile = detectProfile(lines.map((l) => l.text).join('\n'));
   const meta = readMeta(lines, profile);
   const { raw, skipped } = readTable(lines, profile);
@@ -70,6 +72,7 @@ export function parseReport(items: TextItem[]): ExtractedReport {
     rows,
     skipped,
     hasText: lines.length > 0,
+    source,
   };
 }
 
