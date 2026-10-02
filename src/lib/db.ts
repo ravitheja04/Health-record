@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Attachment, MedicalRecord, Member } from './types';
 
 export const DATABASE_NAME = 'family-health.db';
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 6;
 
 /** Runs once when the SQLiteProvider opens the database. */
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
@@ -127,6 +127,43 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     `);
   }
 
+  if (current < 5) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS emergency_info (
+        memberId TEXT PRIMARY KEY NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        contacts TEXT NOT NULL DEFAULT '[]',
+        doctorName TEXT NOT NULL DEFAULT '',
+        doctorPhone TEXT NOT NULL DEFAULT '',
+        insurer TEXT NOT NULL DEFAULT '',
+        policyNumber TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        updatedAt TEXT NOT NULL
+      );
+    `);
+  }
+
+  if (current < 6) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS vitals (
+        id TEXT PRIMARY KEY NOT NULL,
+        memberId TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        value REAL NOT NULL,
+        value2 REAL,
+        context TEXT NOT NULL DEFAULT '',
+        measuredAt TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS vitals_member_type ON vitals(memberId, type, measuredAt);
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL
+      );
+    `);
+  }
+
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 }
 
@@ -190,15 +227,13 @@ export function listRecentRecords(db: SQLiteDatabase, limit = 5) {
   );
 }
 
-export function searchRecords(db: SQLiteDatabase, query: string) {
-  const q = `%${query.trim()}%`;
+/** Every record in the family, newest first. */
+export function listAllRecords(db: SQLiteDatabase) {
   return db.getAllAsync<RecordWithCount>(
     `SELECT r.*, m.name AS memberName, m.color AS memberColor,
        (SELECT COUNT(*) FROM attachments a WHERE a.recordId = r.id) AS attachmentCount
      FROM records r JOIN members m ON m.id = r.memberId
-     WHERE r.title LIKE ? OR r.doctor LIKE ? OR r.facility LIKE ? OR r.notes LIKE ? OR m.name LIKE ?
-     ORDER BY r.date DESC LIMIT 100`,
-    q, q, q, q, q
+     ORDER BY r.date DESC, r.createdAt DESC`
   );
 }
 

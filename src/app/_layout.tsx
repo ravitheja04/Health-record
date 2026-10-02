@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Suspense, useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
+import { AppLock } from '@/components/AppLock';
 import { colors } from '@/components/ui';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/lib/db';
 import { configureNotifications, syncRemindersQuietly } from '@/lib/reminders';
@@ -52,8 +53,7 @@ export default function RootLayout() {
             headerTitleStyle: { color: colors.text },
             contentStyle: { backgroundColor: colors.bg },
           }}>
-          <Stack.Screen name="index" options={{ title: 'Family Health' }} />
-          <Stack.Screen name="search" options={{ title: 'Search records' }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Home' }} />
           <Stack.Screen name="share" options={{ title: 'Share & Sync', presentation: 'modal' }} />
           <Stack.Screen name="member/[id]" options={{ title: '' }} />
           <Stack.Screen name="member/edit" options={{ title: 'Family member', presentation: 'modal' }} />
@@ -63,12 +63,17 @@ export default function RootLayout() {
           <Stack.Screen name="labs/[memberId]" options={{ title: 'Lab trends' }} />
           <Stack.Screen name="labs/test" options={{ title: '' }} />
           <Stack.Screen name="labs/compare" options={{ title: 'Compare reports' }} />
-          <Stack.Screen name="medicines/index" options={{ title: 'Medicines' }} />
           <Stack.Screen name="medicines/edit" options={{ title: 'Medicine', presentation: 'modal' }} />
           <Stack.Screen name="vaccines/[memberId]" options={{ title: 'Vaccinations' }} />
           <Stack.Screen name="vaccines/edit" options={{ title: 'Vaccination', presentation: 'modal' }} />
           <Stack.Screen name="vaccines/schedule" options={{ title: 'Vaccination schedule', presentation: 'modal' }} />
+          <Stack.Screen name="emergency/[memberId]" options={{ title: 'Emergency card' }} />
+          <Stack.Screen name="emergency/edit" options={{ title: 'Emergency card', presentation: 'modal' }} />
+          <Stack.Screen name="vitals/[type]" options={{ title: 'Vitals' }} />
+          <Stack.Screen name="vitals/add" options={{ title: 'Log a reading', presentation: 'modal' }} />
+          <Stack.Screen name="settings" options={{ title: 'Settings' }} />
         </Stack>
+        <AppLock />
       </SQLiteProvider>
     </Suspense>
   );

@@ -124,6 +124,45 @@ export type Vaccination = {
   updatedAt: string;
 };
 
+export type EmergencyContact = {
+  name: string;
+  /** e.g. "Son", "Neighbour" */
+  relation: string;
+  phone: string;
+};
+
+/** Extra details for a member's emergency card; health details live on the member. */
+export type EmergencyInfo = {
+  memberId: string;
+  contacts: EmergencyContact[];
+  doctorName: string;
+  doctorPhone: string;
+  insurer: string;
+  policyNumber: string;
+  /** Anything a responder should know, e.g. "Has a pacemaker". */
+  notes: string;
+  updatedAt: string;
+};
+
+export type VitalType = 'bp' | 'sugar' | 'weight' | 'pulse' | 'spo2' | 'temp';
+
+export type Vital = {
+  id: string;
+  memberId: string;
+  type: VitalType;
+  /** Systolic for blood pressure. */
+  value: number;
+  /** Diastolic for blood pressure; null for other types. */
+  value2: number | null;
+  /** For blood sugar: "fasting", "after_meal" or "random". */
+  context: string;
+  /** Local date and time, "YYYY-MM-DDTHH:MM". */
+  measuredAt: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export const RECORD_TYPES: Record<RecordType, { label: string; icon: string; color: string }> = {
   lab: { label: 'Lab report', icon: 'flask-outline', color: '#7C3AED' },
   prescription: { label: 'Prescription', icon: 'medkit-outline', color: '#DB2777' },
