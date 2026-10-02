@@ -65,10 +65,12 @@ export default function LabTrendsScreen() {
         <EmptyState
           icon="flask-outline"
           title="No test results yet"
-          message="Open a lab report, tap “Add test results” and type in the values. Each new report adds a point to the trend.">
+          message="Read a lab report PDF from Apollo, Tata 1mg or another lab, or add a report and type in the values. Each new report adds a point to the trend.">
+          <Button title="Read a lab report PDF" icon="scan-outline" onPress={() => router.push({ pathname: '/record/import', params: { memberId } })} />
           <Button
             title="Add a lab report"
             icon="add-outline"
+            variant="secondary"
             onPress={() => router.push({ pathname: '/record/edit', params: { memberId, type: 'lab' } })}
           />
         </EmptyState>
