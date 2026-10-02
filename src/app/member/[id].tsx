@@ -195,6 +195,20 @@ export default function MemberScreen() {
             <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
           </View>
         </Card>
+        {age !== null && age < 18 ? (
+          <Card onPress={() => router.push({ pathname: '/growth/[memberId]', params: { memberId: id } })}>
+            <View style={styles.row}>
+              <Icon name="trending-up-outline" color="#16A34A" size={24} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>Growth</Text>
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {age < 5 ? 'Weight, height and head size on WHO growth charts' : 'Weight, height and BMI over time'}
+                </Text>
+              </View>
+              <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
+            </View>
+          </Card>
+        ) : null}
         <Card onPress={() => router.navigate({ pathname: '/vitals', params: { memberId: id } })}>
           <View style={styles.row}>
             <Icon name="pulse-outline" color="#DC2626" size={24} />

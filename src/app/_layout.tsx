@@ -71,6 +71,7 @@ export default function RootLayout() {
           <Stack.Screen name="emergency/[memberId]" options={{ title: 'Emergency card' }} />
           <Stack.Screen name="emergency/edit" options={{ title: 'Emergency card', presentation: 'modal' }} />
           <Stack.Screen name="vitals/[type]" options={{ title: 'Vitals' }} />
+          <Stack.Screen name="growth/[memberId]" options={{ title: 'Growth' }} />
           <Stack.Screen name="vitals/add" options={{ title: 'Log a reading', presentation: 'modal' }} />
           <Stack.Screen name="settings" options={{ title: 'Settings' }} />
         </Stack>

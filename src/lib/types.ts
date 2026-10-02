@@ -144,7 +144,7 @@ export type EmergencyInfo = {
   updatedAt: string;
 };
 
-export type VitalType = 'bp' | 'sugar' | 'weight' | 'pulse' | 'spo2' | 'temp';
+export type VitalType = 'bp' | 'sugar' | 'weight' | 'pulse' | 'spo2' | 'temp' | 'height' | 'head';
 
 export type Vital = {
   id: string;

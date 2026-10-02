@@ -9,11 +9,11 @@ import { DateField } from '@/components/DateField';
 import { AddTimeButton } from '@/components/TimePicker';
 import { Button, ChipSelect, colors, Field, styles } from '@/components/ui';
 import { listMembers } from '@/lib/db';
-import { isValidDate, todayIso } from '@/lib/format';
+import { ageFrom, isValidDate, todayIso } from '@/lib/format';
 import { parseNumber } from '@/lib/labAnalysis';
 import { formatTime } from '@/lib/medSchedule';
 import { showError } from '@/lib/useQuery';
-import { checkVital, nowMeasuredAt, rangeText, SUGAR_CONTEXTS, vitalDef, VITALS, vitalStatus } from '@/lib/vitalsAnalysis';
+import { checkVital, nowMeasuredAt, rangeText, SUGAR_CONTEXTS, vitalDef, VITALS, vitalsForAge, vitalStatus } from '@/lib/vitalsAnalysis';
 import { deleteVital, getVital, upsertVital } from '@/lib/vitals';
 import type { Member, Vital, VitalType } from '@/lib/types';
 
@@ -57,6 +57,9 @@ export default function AddVitalScreen() {
   if (!vital) return null;
   const set = <K extends keyof Vital>(key: K, value: Vital[K]) => setVital({ ...vital, [key]: value });
   const def = vitalDef(vital.type);
+  // Head size is only offered for under-fives, but an existing reading keeps its type.
+  const forAge = vitalsForAge(ageFrom(members.find((m) => m.id === vital.memberId)?.dob ?? null)).map((v) => v.type);
+  const typeOptions = forAge.includes(vital.type) ? forAge : [...forAge, vital.type];
   const [date, time] = vital.measuredAt.split('T');
   const value = parseNumber(valueText);
   const value2 = vital.type === 'bp' ? parseNumber(value2Text) : null;
@@ -138,7 +141,7 @@ export default function AddVitalScreen() {
         ) : null}
         <ChipSelect
           label="What did you measure?"
-          options={VITALS.map((v) => v.type)}
+          options={typeOptions}
           value={vital.type}
           onChange={(t) => {
             if (!t) return;

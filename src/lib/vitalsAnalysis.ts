@@ -46,7 +46,15 @@ export const VITALS: VitalDef[] = [
   { type: 'pulse', label: 'Heart rate', short: 'Pulse', unit: 'bpm', icon: 'pulse-outline', color: '#DB2777', min: 25, max: 250, decimals: 0, typical: { low: 60, high: 100 } },
   { type: 'spo2', label: 'Oxygen (SpO₂)', short: 'SpO₂', unit: '%', icon: 'fitness-outline', color: '#2563EB', min: 50, max: 100, decimals: 0, typical: { low: 95, high: null } },
   { type: 'temp', label: 'Temperature', short: 'Temp', unit: '°F', icon: 'thermometer-outline', color: '#EA580C', min: 90, max: 110, decimals: 1, typical: { low: 97, high: 99 } },
+  // Height and head size mostly matter for children's growth (see lib/growth.ts); head size only under 5.
+  { type: 'height', label: 'Height', short: 'Height', unit: 'cm', icon: 'resize-outline', color: '#16A34A', min: 30, max: 250, decimals: 1, typical: null },
+  { type: 'head', label: 'Head size', short: 'Head', unit: 'cm', icon: 'happy-outline', color: '#CA8A04', min: 25, max: 60, decimals: 1, typical: null },
 ];
+
+/** Vitals worth offering for a person of this age (years, or null when unknown). */
+export function vitalsForAge(age: number | null) {
+  return VITALS.filter((v) => v.type !== 'head' || (age !== null && age < 5));
+}
 
 export const SUGAR_CONTEXTS = [
   { key: 'fasting', label: 'Fasting' },
