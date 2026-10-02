@@ -124,6 +124,26 @@ export type Vaccination = {
   updatedAt: string;
 };
 
+export type EmergencyContact = {
+  name: string;
+  /** e.g. "Son", "Neighbour" */
+  relation: string;
+  phone: string;
+};
+
+/** Extra details for a member's emergency card; health details live on the member. */
+export type EmergencyInfo = {
+  memberId: string;
+  contacts: EmergencyContact[];
+  doctorName: string;
+  doctorPhone: string;
+  insurer: string;
+  policyNumber: string;
+  /** Anything a responder should know, e.g. "Has a pacemaker". */
+  notes: string;
+  updatedAt: string;
+};
+
 export const RECORD_TYPES: Record<RecordType, { label: string; icon: string; color: string }> = {
   lab: { label: 'Lab report', icon: 'flask-outline', color: '#7C3AED' },
   prescription: { label: 'Prescription', icon: 'medkit-outline', color: '#DB2777' },

@@ -46,6 +46,9 @@ export default function HomeScreen() {
         options={{
           headerRight: () => (
             <View style={{ flexDirection: 'row', gap: 18 }}>
+              <Pressable accessibilityLabel="Emergency card" hitSlop={8} onPress={() => router.push('/emergency')}>
+                <Icon name="medical" size={22} color="#B91C1C" />
+              </Pressable>
               <Pressable accessibilityLabel="Search records" hitSlop={8} onPress={() => router.push('/search')}>
                 <Icon name="search-outline" size={22} color={colors.primary} />
               </Pressable>

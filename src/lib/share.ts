@@ -3,6 +3,9 @@ import * as Print from 'expo-print';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import * as DB from './db';
+import * as Emergency from './emergency';
+import { cardContacts, emergencyText } from './emergencyText';
+import { qrSvgMarkup } from './qr';
 import { buildSeries, formatRange, formatValue, statusOf } from './labAnalysis';
 import * as Labs from './labs';
 import { isCurrent, scheduleText } from './medSchedule';
@@ -11,11 +14,11 @@ import { sortVaccinations, vaccineStatus } from './vaccineAnalysis';
 import * as Vax from './vaccines';
 import { readAttachmentBase64, shareFile, writeAttachmentFromBase64 } from './files';
 import { ageFrom, escapeHtml, formatDate, safeFileName, todayIso } from './format';
-import { RECORD_TYPES, type Attachment, type DoseLog, type LabResult, type MedicalRecord, type Medication, type Member, type Vaccination } from './types';
+import { RECORD_TYPES, type Attachment, type DoseLog, type LabResult, type EmergencyInfo, type MedicalRecord, type Medication, type Member, type Vaccination } from './types';
 
 const BUNDLE_FORMAT = 'family-health-registry';
-/** v2 added lab results, v3 medicines, v4 vaccinations; older files still import. */
-const BUNDLE_VERSION = 4;
+/** v2 added lab results, v3 medicines, v4 vaccinations, v5 emergency cards; older files still import. */
+const BUNDLE_VERSION = 5;
 const SAFE_FILE_NAME = /^[A-Za-z0-9-]+\.[A-Za-z0-9]{1,8}$/;
 
 type BundleAttachment = Attachment & { data: string };
@@ -31,6 +34,7 @@ export type RegistryBundle = {
   medications?: Medication[];
   doseLogs?: DoseLog[];
   vaccinations?: Vaccination[];
+  emergencyInfo?: EmergencyInfo[];
 };
 
 // ---- Family data file (share with other family members) ---------------------
@@ -51,7 +55,10 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
   const labResults: LabResult[] = [];
   const medications: Medication[] = [];
   const vaccinations: Vaccination[] = [];
+  const emergencyInfo: EmergencyInfo[] = [];
   for (const m of members) {
+    const card = await Emergency.getEmergencyInfo(db, m.id);
+    if (card) emergencyInfo.push(card);
     for (const { memberName: _n, memberColor: _c, ...v } of await Vax.listVaccinations(db, m.id)) vaccinations.push(v);
     for (const { memberName: _n, memberColor: _c, ...med } of await Meds.listMedications(db, m.id)) medications.push(med);
     for (const { attachmentCount: _count, memberName: _n, memberColor: _c, ...r } of await DB.listRecords(db, m.id)) {
@@ -77,6 +84,7 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
     medications,
     doseLogs,
     vaccinations,
+    emergencyInfo,
   };
 
   const label = members.length === 1 ? safeFileName(members[0].name) : 'family';
@@ -127,7 +135,8 @@ function parseBundle(text: string): RegistryBundle {
     (b.labResults !== undefined && !Array.isArray(b.labResults)) ||
     (b.medications !== undefined && !Array.isArray(b.medications)) ||
     (b.doseLogs !== undefined && !Array.isArray(b.doseLogs)) ||
-    (b.vaccinations !== undefined && !Array.isArray(b.vaccinations))
+    (b.vaccinations !== undefined && !Array.isArray(b.vaccinations)) ||
+    (b.emergencyInfo !== undefined && !Array.isArray(b.emergencyInfo))
   ) {
     throw new Error('The export file is incomplete or damaged.');
   }
@@ -231,6 +240,12 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
         result.vaccinationsUpdated++;
       }
     }
+
+    for (const card of (bundle.emergencyInfo ?? []).filter(isValidEmergencyInfo)) {
+      if (!(await DB.getMember(db, card.memberId))) continue;
+      const existing = await Emergency.getEmergencyInfo(db, card.memberId);
+      if (!existing || card.updatedAt > existing.updatedAt) await Emergency.upsertEmergencyInfo(db, card);
+    }
   });
 
   return result;
@@ -261,6 +276,22 @@ function isValidMedication(v: unknown): v is Medication {
     typeof m.notes === 'string' &&
     typeof m.createdAt === 'string' &&
     typeof m.updatedAt === 'string'
+  );
+}
+
+function isValidEmergencyInfo(v: unknown): v is EmergencyInfo {
+  const x = v as EmergencyInfo;
+  return (
+    !!x &&
+    typeof x.memberId === 'string' &&
+    Array.isArray(x.contacts) &&
+    x.contacts.every((c) => !!c && typeof c.name === 'string' && typeof c.relation === 'string' && typeof c.phone === 'string') &&
+    typeof x.doctorName === 'string' &&
+    typeof x.doctorPhone === 'string' &&
+    typeof x.insurer === 'string' &&
+    typeof x.policyNumber === 'string' &&
+    typeof x.notes === 'string' &&
+    typeof x.updatedAt === 'string'
   );
 }
 
@@ -495,4 +526,54 @@ export async function shareRecordPdf(db: SQLiteDatabase, recordId: string) {
   </body></html>`;
 
   await printAndShare(html, `${m?.name ?? 'record'}-${r.title}-${r.date}`);
+}
+
+/** A one-page emergency card with the QR code, to print, keep in a wallet or send. */
+export async function shareEmergencyPdf(db: SQLiteDatabase, memberId: string) {
+  const m = await DB.getMember(db, memberId);
+  if (!m) throw new Error('Family member not found.');
+  const info = await Emergency.getEmergencyInfo(db, memberId);
+  const meds = (await Meds.listMedications(db, memberId))
+    .filter((md) => isCurrent(md, todayIso()))
+    .map((md) => [md.name, md.dose].filter(Boolean).join(' '));
+  const text = emergencyText(m, info, meds, todayIso());
+  const contacts = cardContacts(m, info);
+  const age = ageFrom(m.dob);
+  const row = (k: string, v: string) => (v.trim() ? `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>` : '');
+
+  const html = `<html><head><meta charset="utf-8"><style>${PDF_STYLES}
+    .card { border: 3px solid #B91C1C; border-radius: 14px; overflow: hidden; }
+    .head { background: #B91C1C; color: #fff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .head h1 { color: #fff; margin: 0; }
+    .blood { background: #fff; color: #B91C1C; border-radius: 10px; padding: 6px 14px; text-align: center; font-weight: 800; font-size: 26px; }
+    .blood small { display: block; font-size: 10px; letter-spacing: 1px; }
+    .body { padding: 16px 20px; display: flex; gap: 20px; }
+    .qr { text-align: center; font-size: 11px; color: #64748B; width: 190px; }
+  </style></head><body>
+    <div class="card">
+      <div class="head">
+        <div><div style="font-size:12px;letter-spacing:1px;font-weight:700">EMERGENCY MEDICAL INFORMATION</div>
+          <h1>${escapeHtml(m.name)}</h1>
+          <div>${escapeHtml([age !== null ? `${age} years` : '', m.gender ?? ''].filter(Boolean).join(' · '))}</div></div>
+        <div class="blood"><small>BLOOD</small>${escapeHtml(m.bloodGroup ?? '?')}</div>
+      </div>
+      <div class="body">
+        <div style="flex:1">
+          <div class="alert"><b>Allergies:</b> ${escapeHtml(m.allergies.trim() || 'None known')}</div>
+          <table class="grid" style="margin-top:10px">
+            ${row('Conditions', m.conditions)}
+            ${row('Medicines', [...meds, m.medications].filter((x) => x.trim()).join('; '))}
+            ${contacts.map((c) => row(`Contact${c.relation ? ` (${c.relation})` : ''}`, `${c.name} ${c.phone}`)).join('')}
+            ${row('Doctor', `${info?.doctorName ?? ''} ${info?.doctorPhone ?? ''}`)}
+            ${row('Insurance', [info?.insurer ?? '', info?.policyNumber ? `Policy ${info.policyNumber}` : ''].filter(Boolean).join(' · '))}
+            ${row('Notes', info?.notes ?? '')}
+          </table>
+        </div>
+        <div class="qr">${qrSvgMarkup(text, 180)}<div>Scan with any phone camera</div></div>
+      </div>
+    </div>
+    <footer>Family Health Registry · updated ${escapeHtml(formatDate(todayIso()))}</footer>
+  </body></html>`;
+
+  await printAndShare(html, `${m.name}-emergency-card`);
 }

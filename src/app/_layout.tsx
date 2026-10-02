@@ -68,6 +68,9 @@ export default function RootLayout() {
           <Stack.Screen name="vaccines/[memberId]" options={{ title: 'Vaccinations' }} />
           <Stack.Screen name="vaccines/edit" options={{ title: 'Vaccination', presentation: 'modal' }} />
           <Stack.Screen name="vaccines/schedule" options={{ title: 'Vaccination schedule', presentation: 'modal' }} />
+          <Stack.Screen name="emergency/index" options={{ title: 'Emergency card' }} />
+          <Stack.Screen name="emergency/[memberId]" options={{ title: 'Emergency card' }} />
+          <Stack.Screen name="emergency/edit" options={{ title: 'Emergency card', presentation: 'modal' }} />
         </Stack>
       </SQLiteProvider>
     </Suspense>

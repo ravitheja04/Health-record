@@ -147,6 +147,12 @@ export default function MemberScreen() {
         </Card>
 
         <Button
+          title="Emergency card"
+          icon="medical"
+          variant="danger"
+          onPress={() => router.push({ pathname: '/emergency/[memberId]', params: { memberId: id } })}
+        />
+        <Button
           title="Add medical record"
           icon="add-outline"
           onPress={() => router.push({ pathname: '/record/edit', params: { memberId: id } })}
