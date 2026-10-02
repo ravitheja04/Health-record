@@ -15,6 +15,8 @@ import { listMedications } from '@/lib/meds';
 import { syncRemindersQuietly } from '@/lib/reminders';
 import { sortVaccinations, vaccineDetail, vaccineStatus, vaccineSummary } from '@/lib/vaccineAnalysis';
 import { listVaccinations } from '@/lib/vaccines';
+import { formatVital, latestByType, VITALS } from '@/lib/vitalsAnalysis';
+import { listVitals } from '@/lib/vitals';
 import { shareMemberSummaryPdf, shareRegistryBundle } from '@/lib/share';
 import { showError, useQuery } from '@/lib/useQuery';
 import { RECORD_TYPES, type RecordType } from '@/lib/types';
@@ -34,6 +36,7 @@ export default function MemberScreen() {
       labTests: await countMemberResults(db, id),
       meds: await listMedications(db, id),
       vaccines: await listVaccinations(db, id),
+      vitals: latestByType(await listVitals(db, id)),
     }),
     [db, id]
   );
@@ -187,6 +190,25 @@ export default function MemberScreen() {
                   const next = sortVaccinations(data.vaccines, today).find((v) => vaccineStatus(v, today) !== 'given');
                   return `${s.given} of ${s.total} given${next ? ` · ${next.name}: ${vaccineDetail(next, today)}` : ''}`;
                 })()}
+              </Text>
+            </View>
+            <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
+          </View>
+        </Card>
+        <Card onPress={() => router.navigate({ pathname: '/vitals', params: { memberId: id } })}>
+          <View style={styles.row}>
+            <Icon name="pulse-outline" color="#DC2626" size={24} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Vitals</Text>
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {data.vitals.size
+                  ? VITALS.flatMap((d) => {
+                      const v = data.vitals.get(d.type);
+                      return v ? [`${d.short} ${formatVital(v)}`] : [];
+                    })
+                      .slice(0, 3)
+                      .join(' · ')
+                  : 'Log blood pressure, sugar, weight and more'}
               </Text>
             </View>
             <Icon name="chevron-forward-outline" size={18} color={colors.muted} />

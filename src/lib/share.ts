@@ -12,13 +12,15 @@ import { isCurrent, scheduleText } from './medSchedule';
 import * as Meds from './meds';
 import { sortVaccinations, vaccineStatus } from './vaccineAnalysis';
 import * as Vax from './vaccines';
+import { checkVital, VITALS } from './vitalsAnalysis';
+import * as Vitals from './vitals';
 import { readAttachmentBase64, shareFile, writeAttachmentFromBase64 } from './files';
 import { ageFrom, escapeHtml, formatDate, safeFileName, todayIso } from './format';
-import { RECORD_TYPES, type Attachment, type DoseLog, type LabResult, type EmergencyInfo, type MedicalRecord, type Medication, type Member, type Vaccination } from './types';
+import { RECORD_TYPES, type Attachment, type DoseLog, type LabResult, type EmergencyInfo, type MedicalRecord, type Medication, type Member, type Vaccination, type Vital } from './types';
 
 const BUNDLE_FORMAT = 'family-health-registry';
-/** v2 added lab results, v3 medicines, v4 vaccinations, v5 emergency cards; older files still import. */
-const BUNDLE_VERSION = 5;
+/** v2 added lab results, v3 medicines, v4 vaccinations, v5 emergency cards, v6 vitals; older files still import. */
+const BUNDLE_VERSION = 6;
 const SAFE_FILE_NAME = /^[A-Za-z0-9-]+\.[A-Za-z0-9]{1,8}$/;
 
 type BundleAttachment = Attachment & { data: string };
@@ -35,6 +37,7 @@ export type RegistryBundle = {
   doseLogs?: DoseLog[];
   vaccinations?: Vaccination[];
   emergencyInfo?: EmergencyInfo[];
+  vitals?: Vital[];
 };
 
 // ---- Family data file (share with other family members) ---------------------
@@ -72,6 +75,7 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
   }
 
   const doseLogs = await Meds.listAllDoseLogs(db, medications.map((m) => m.id));
+  const vitals = await Vitals.listAllVitals(db, members.map((m) => m.id));
 
   const bundle: RegistryBundle = {
     format: BUNDLE_FORMAT,
@@ -85,6 +89,7 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
     doseLogs,
     vaccinations,
     emergencyInfo,
+    vitals,
   };
 
   const label = members.length === 1 ? safeFileName(members[0].name) : 'family';
@@ -100,6 +105,7 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
     labResults: labResults.length,
     medications: medications.length,
     vaccinations: vaccinations.length,
+    vitals: vitals.length,
   };
 }
 
@@ -114,6 +120,7 @@ export type ImportResult = {
   medicationsUpdated: number;
   vaccinationsAdded: number;
   vaccinationsUpdated: number;
+  vitalsImported: number;
 };
 
 function parseBundle(text: string): RegistryBundle {
@@ -136,7 +143,8 @@ function parseBundle(text: string): RegistryBundle {
     (b.medications !== undefined && !Array.isArray(b.medications)) ||
     (b.doseLogs !== undefined && !Array.isArray(b.doseLogs)) ||
     (b.vaccinations !== undefined && !Array.isArray(b.vaccinations)) ||
-    (b.emergencyInfo !== undefined && !Array.isArray(b.emergencyInfo))
+    (b.emergencyInfo !== undefined && !Array.isArray(b.emergencyInfo)) ||
+    (b.vitals !== undefined && !Array.isArray(b.vitals))
   ) {
     throw new Error('The export file is incomplete or damaged.');
   }
@@ -160,6 +168,7 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
     medicationsUpdated: 0,
     vaccinationsAdded: 0,
     vaccinationsUpdated: 0,
+    vitalsImported: 0,
   };
   // Records whose shared copy won the merge; their lab results are taken from the file too.
   const recordsTaken = new Set<string>();
@@ -246,6 +255,15 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
       const existing = await Emergency.getEmergencyInfo(db, card.memberId);
       if (!existing || card.updatedAt > existing.updatedAt) await Emergency.upsertEmergencyInfo(db, card);
     }
+
+    for (const v of (bundle.vitals ?? []).filter(isValidVital)) {
+      if (!(await DB.getMember(db, v.memberId))) continue;
+      const existing = await Vitals.getVital(db, v.id);
+      if (!existing || v.updatedAt > existing.updatedAt) {
+        await Vitals.upsertVital(db, v);
+        result.vitalsImported++;
+      }
+    }
   });
 
   return result;
@@ -310,6 +328,25 @@ function isValidVaccination(v: unknown): v is Vaccination {
     typeof x.notes === 'string' &&
     (x.recordId === null || typeof x.recordId === 'string') &&
     (x.scheduleKey === null || typeof x.scheduleKey === 'string') &&
+    typeof x.createdAt === 'string' &&
+    typeof x.updatedAt === 'string'
+  );
+}
+
+function isValidVital(v: unknown): v is Vital {
+  const x = v as Vital;
+  return (
+    !!x &&
+    typeof x.id === 'string' &&
+    typeof x.memberId === 'string' &&
+    VITALS.some((d) => d.type === x.type) &&
+    typeof x.value === 'number' &&
+    (x.value2 === null || typeof x.value2 === 'number') &&
+    checkVital(x.type, x.value, x.value2) === null &&
+    typeof x.context === 'string' &&
+    typeof x.measuredAt === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(x.measuredAt) &&
+    typeof x.notes === 'string' &&
     typeof x.createdAt === 'string' &&
     typeof x.updatedAt === 'string'
   );

@@ -1,4 +1,4 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, Tabs, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
@@ -139,10 +139,10 @@ export default function MedicinesScreen() {
 
   return (
     <>
-      <Stack.Screen
+      <Tabs.Screen
         options={{
           headerRight: () => (
-            <Pressable accessibilityLabel="Add medicine" hitSlop={8} onPress={add}>
+            <Pressable accessibilityLabel="Add medicine" hitSlop={8} style={{ marginRight: 16 }} onPress={add}>
               <Icon name="add-outline" size={26} color={colors.primary} />
             </Pressable>
           ),

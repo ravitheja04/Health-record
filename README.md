@@ -12,8 +12,11 @@ Built with [Expo](https://expo.dev) (SDK 57, React Native, TypeScript, Expo Rout
 - **Lab trends**: type in the values from each lab report (about 30 common tests, grouped into panels like Diabetes, Lipid profile, Thyroid; or any custom test). Each person gets a trends view showing which tests are out of the report's range, a chart per test over time with the normal range shaded, how often it is tested, and a side-by-side comparison of any two reports. Changes are marked as moving toward or away from the report's range; the app never diagnoses.
 - **Medicines & reminders**: each person's medicines with dose, food instructions, times of day, every day or chosen weekdays, and start/end dates for courses. A "Today" checklist for the whole family (tick when taken, or mark skipped), phone notifications at each dose time, and tablets-left tracking with a refill warning when about 5 days remain. Reminders are per phone: shared medicines arrive with reminders off.
 - **Vaccination tracker**: per person, doses given and due, grouped as overdue / due in 30 days / upcoming / given. For children, add the whole Indian government (NIS) or IAP schedule in one tap with due dates worked out from the date of birth (typical ages, editable), and mark past doses as given in bulk. Reminders a week before and on the due date, and a linked record for each certificate photo or PDF. Adults can add flu, COVID-19, Tdap, hepatitis B and other vaccines.
-- **Emergency card**: one tap from the home screen (red medical icon). Shows blood group, allergies (highlighted), conditions, current medicines, up to 3 emergency contacts and the family doctor with call buttons, insurance and notes for responders, plus a QR code any phone camera can read offline (UTF-8, so names in any Indian script work). Share it as a printable PDF card or as text to paste into the phone's own lock-screen medical info.
-- **Search** across all records by title, doctor, hospital, notes or family member name.
+- **Home dashboard and tabs**: a bottom tab bar (Home, Records, Medicines, Vitals, Emergency). Home shows the family, what needs attention today (late doses, refills, overdue vaccines), today's medicines and recent records.
+- **Emergency card**: its own tab (red medical icon). Shows blood group, allergies (highlighted), conditions, current medicines, up to 3 emergency contacts and the family doctor with call buttons, insurance and notes for responders, plus a QR code any phone camera can read offline (UTF-8, so names in any Indian script work). Share it as a printable PDF card or as text to paste into the phone's own lock-screen medical info.
+- **Vitals log**: blood pressure, blood sugar (fasting / after meal / random), weight, heart rate, SpO₂ and temperature. Each person gets a tile per vital with the latest reading and a sparkline, and a detail screen with a chart over 30 days, 6 months or all time, the general adult typical range shaded, and every reading. Readings are marked above / below / in the typical range only; the app never diagnoses.
+- **App lock**: optional fingerprint, face or phone PIN lock (Settings), re-locking after 1, 5 or 15 minutes away. The screen is hidden in the app switcher while locked.
+- **Records**: every record in the family in one list, searchable by title, doctor, hospital, notes or family member, and filterable by person and type.
 - **Share with family**: export the whole family, or a single person, as one data file (records and attachments included). Send it by WhatsApp, email, AirDrop, Nearby Share, Drive, and so on. Family members use **Import data file** to merge it into their own app. New entries are added, and when two phones edited the same entry the newest edit wins.
 - **Share with doctors**: generate a clean PDF health summary for a person, or a PDF of a single record with its images embedded.
 - **Private by default**: data lives on the device in SQLite. There are no accounts, no servers and no analytics.
@@ -62,13 +65,14 @@ Before your first store build, change `ios.bundleIdentifier` and `android.packag
 ```
 src/
   app/                  Screens (Expo Router: each file is a route)
-    _layout.tsx         Database provider + navigation stack
-    index.tsx           Home: family members and recent records
+    _layout.tsx         Database provider, navigation stack and app lock
+    (tabs)/             Bottom tabs: Home dashboard, Records, Medicines, Vitals, Emergency
     member/[id].tsx     Member profile, health info, records, share
     member/edit.tsx     Add / edit a family member
     record/[id].tsx     Record details and attachments
     record/edit.tsx     Add / edit a record and its attachments
-    search.tsx          Search all records
+    vitals/             Vital detail chart and add / edit reading
+    settings.tsx        App lock and about
     share.tsx           Share & Sync: export / import family data files
   components/           Reusable UI (buttons, cards, form fields, record rows)
   lib/
@@ -80,7 +84,7 @@ src/
 
 ## How family sharing works
 
-Each phone keeps its own copy of the registry. The data file (`*-health-records-YYYY-MM-DD.json`) contains members, records and base64-encoded attachments. On import:
+Each phone keeps its own copy of the registry. The data file (`*-health-records-YYYY-MM-DD.json`) contains members, records, base64-encoded attachments, lab results, medicines, vaccinations, emergency cards and vitals. On import:
 
 - members, records and attachments are matched by ID, so importing the same file twice is harmless;
 - when both phones have the same member or record, the one with the newest `updatedAt` is kept;
