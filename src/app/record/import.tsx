@@ -13,6 +13,7 @@ import { OcrUnavailableError, recognizeImages } from '@/components/ReportOcr';
 import { Button, Card, ChipSelect, colors, Field, Icon, SectionTitle, styles } from '@/components/ui';
 import * as DB from '@/lib/db';
 import { matchMember, parseReport, type ExtractedReport } from '@/lib/extract/parseReport';
+import { findDuplicateReport } from '@/lib/extract/duplicates';
 import { setPendingImport, titleFor } from '@/lib/extract/pending';
 import { attachmentFile, persistPendingFile, type PendingFile } from '@/lib/files';
 import { formatDate, todayIso } from '@/lib/format';
@@ -139,7 +140,7 @@ export default function ImportReportScreen() {
     ]);
   }
 
-  async function save(report: ExtractedReport) {
+  async function save(report: ExtractedReport, checked = false) {
     if (forRecord && params.recordId) {
       setPendingImport(params.recordId, report);
       router.back();
@@ -147,6 +148,18 @@ export default function ImportReportScreen() {
     }
     if (!files.length) return;
     if (!chosenId) return showError('Choose a family member', 'Select whose report this is.');
+    const date = report.collectedDate ?? report.reportedDate ?? todayIso();
+    if (!checked && report.rows.length) {
+      const existing = await findDuplicateReport(db, chosenId, date, report.rows).catch(() => null);
+      if (existing) {
+        Alert.alert('Already saved?', `This looks like “${existing.title}” from ${formatDate(existing.date)}, which has the same results.`, [
+          { text: 'Open saved report', onPress: () => router.replace({ pathname: '/record/[id]', params: { id: existing.id } }) },
+          { text: 'Save anyway', onPress: () => save(report, true) },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const now = new Date().toISOString();
@@ -159,7 +172,7 @@ export default function ImportReportScreen() {
           memberId: chosenId,
           type: 'lab',
           title: title.trim() || 'Lab report',
-          date: report.collectedDate ?? report.reportedDate ?? todayIso(),
+          date,
           doctor: report.doctor ?? '',
           facility: report.labName,
           notes: '',
