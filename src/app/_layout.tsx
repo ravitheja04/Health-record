@@ -1,11 +1,36 @@
-import { Stack } from 'expo-router';
-import { SQLiteProvider } from 'expo-sqlite';
+import * as Notifications from 'expo-notifications';
+import { router, Stack, type Href } from 'expo-router';
+import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { colors } from '@/components/ui';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/lib/db';
+import { configureNotifications, syncRemindersQuietly } from '@/lib/reminders';
+
+configureNotifications();
+
+/** Refreshes reminders when the app opens and opens the right screen when one is tapped. */
+function Reminders() {
+  const db = useSQLiteContext();
+  useEffect(() => {
+    syncRemindersQuietly(db);
+    const open = (response: Notifications.NotificationResponse | null) => {
+      const url = response?.notification.request.content.data?.url;
+      if (typeof url === 'string') router.push(url as Href);
+    };
+    const last = Notifications.getLastNotificationResponse();
+    if (last) {
+      Notifications.clearLastNotificationResponse();
+      // Let the navigator mount before navigating from a cold start.
+      setTimeout(() => open(last), 0);
+    }
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
+    return () => sub.remove();
+  }, [db]);
+  return null;
+}
 
 function Loading() {
   return (
@@ -20,6 +45,7 @@ export default function RootLayout() {
     <Suspense fallback={<Loading />}>
       <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded} useSuspense>
         <StatusBar style="dark" />
+        <Reminders />
         <Stack
           screenOptions={{
             headerTintColor: colors.primary,
@@ -37,6 +63,11 @@ export default function RootLayout() {
           <Stack.Screen name="labs/[memberId]" options={{ title: 'Lab trends' }} />
           <Stack.Screen name="labs/test" options={{ title: '' }} />
           <Stack.Screen name="labs/compare" options={{ title: 'Compare reports' }} />
+          <Stack.Screen name="medicines/index" options={{ title: 'Medicines' }} />
+          <Stack.Screen name="medicines/edit" options={{ title: 'Medicine', presentation: 'modal' }} />
+          <Stack.Screen name="vaccines/[memberId]" options={{ title: 'Vaccinations' }} />
+          <Stack.Screen name="vaccines/edit" options={{ title: 'Vaccination', presentation: 'modal' }} />
+          <Stack.Screen name="vaccines/schedule" options={{ title: 'Vaccination schedule', presentation: 'modal' }} />
         </Stack>
       </SQLiteProvider>
     </Suspense>

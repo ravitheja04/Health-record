@@ -3,7 +3,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Attachment, MedicalRecord, Member } from './types';
 
 export const DATABASE_NAME = 'family-health.db';
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 4;
 
 /** Runs once when the SQLiteProvider opens the database. */
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
@@ -71,6 +71,59 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       );
       CREATE INDEX IF NOT EXISTS lab_results_record ON lab_results(recordId);
       CREATE INDEX IF NOT EXISTS lab_results_test ON lab_results(testKey);
+    `);
+  }
+
+  if (current < 3) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS medications (
+        id TEXT PRIMARY KEY NOT NULL,
+        memberId TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        dose TEXT NOT NULL DEFAULT '',
+        instructions TEXT NOT NULL DEFAULT '',
+        times TEXT NOT NULL DEFAULT '[]',
+        frequency TEXT NOT NULL DEFAULT 'daily',
+        days TEXT NOT NULL DEFAULT '[]',
+        startDate TEXT NOT NULL,
+        endDate TEXT,
+        stock REAL,
+        perDose REAL NOT NULL DEFAULT 1,
+        remindersOn INTEGER NOT NULL DEFAULT 1,
+        notes TEXT NOT NULL DEFAULT '',
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS medications_member ON medications(memberId);
+      CREATE TABLE IF NOT EXISTS dose_logs (
+        id TEXT PRIMARY KEY NOT NULL,
+        medicationId TEXT NOT NULL REFERENCES medications(id) ON DELETE CASCADE,
+        date TEXT NOT NULL,
+        time TEXT NOT NULL,
+        status TEXT NOT NULL,
+        loggedAt TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS dose_logs_slot ON dose_logs(medicationId, date, time);
+    `);
+  }
+
+  if (current < 4) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS vaccinations (
+        id TEXT PRIMARY KEY NOT NULL,
+        memberId TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        dose TEXT NOT NULL DEFAULT '',
+        dueDate TEXT,
+        givenDate TEXT,
+        facility TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        recordId TEXT REFERENCES records(id) ON DELETE SET NULL,
+        scheduleKey TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS vaccinations_member ON vaccinations(memberId);
     `);
   }
 

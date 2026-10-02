@@ -63,6 +63,67 @@ export type LabResult = {
   createdAt: string;
 };
 
+export type MedFrequency = 'daily' | 'weekly';
+
+export type Medication = {
+  id: string;
+  memberId: string;
+  name: string;
+  /** Free text such as "500 mg" or "1 tablet". */
+  dose: string;
+  /** When to take it, e.g. "After food". */
+  instructions: string;
+  /** Dose times as 24-hour "HH:MM", sorted. */
+  times: string[];
+  frequency: MedFrequency;
+  /** For weekly medicines: weekdays 0 (Sunday) to 6 (Saturday). */
+  days: number[];
+  startDate: string;
+  /** Last day to take it; null while ongoing. */
+  endDate: string | null;
+  /** Tablets or doses left; null when not tracked. */
+  stock: number | null;
+  /** How many units one dose uses up. */
+  perDose: number;
+  /** Whether this phone shows reminders for it. Not shared with other phones. */
+  remindersOn: boolean;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DoseStatus = 'taken' | 'skipped';
+
+export type DoseLog = {
+  id: string;
+  medicationId: string;
+  date: string;
+  time: string;
+  status: DoseStatus;
+  loggedAt: string;
+};
+
+export type Vaccination = {
+  id: string;
+  memberId: string;
+  /** Vaccine name, e.g. "MMR". */
+  name: string;
+  /** Which dose, e.g. "Dose 1" or "Booster 1". */
+  dose: string;
+  /** When it is due; null when no date is known ("as advised"). */
+  dueDate: string | null;
+  /** When it was given; null while still due. */
+  givenDate: string | null;
+  facility: string;
+  notes: string;
+  /** The medical record created when it was given (holds the certificate). */
+  recordId: string | null;
+  /** Template entry it came from, e.g. "iap:mmr-1", so a schedule is never added twice. */
+  scheduleKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export const RECORD_TYPES: Record<RecordType, { label: string; icon: string; color: string }> = {
   lab: { label: 'Lab report', icon: 'flask-outline', color: '#7C3AED' },
   prescription: { label: 'Prescription', icon: 'medkit-outline', color: '#DB2777' },

@@ -10,6 +10,8 @@ Built with [Expo](https://expo.dev) (SDK 57, React Native, TypeScript, Expo Rout
 - **Medical records**: lab reports, prescriptions, doctor visits, vaccinations, scans/imaging, surgeries/procedures, insurance and other documents. Each record has a date, doctor, hospital/lab and notes/results.
 - **Attachments**: photograph a report with the camera, pick photos, or attach PDFs and images from Files/Drive/iCloud. Files are copied into the app's private storage.
 - **Lab trends**: type in the values from each lab report (about 30 common tests, grouped into panels like Diabetes, Lipid profile, Thyroid; or any custom test). Each person gets a trends view showing which tests are out of the report's range, a chart per test over time with the normal range shaded, how often it is tested, and a side-by-side comparison of any two reports. Changes are marked as moving toward or away from the report's range; the app never diagnoses.
+- **Medicines & reminders**: each person's medicines with dose, food instructions, times of day, every day or chosen weekdays, and start/end dates for courses. A "Today" checklist for the whole family (tick when taken, or mark skipped), phone notifications at each dose time, and tablets-left tracking with a refill warning when about 5 days remain. Reminders are per phone: shared medicines arrive with reminders off.
+- **Vaccination tracker**: per person, doses given and due, grouped as overdue / due in 30 days / upcoming / given. For children, add the whole Indian government (NIS) or IAP schedule in one tap with due dates worked out from the date of birth (typical ages, editable), and mark past doses as given in bulk. Reminders a week before and on the due date, and a linked record for each certificate photo or PDF. Adults can add flu, COVID-19, Tdap, hepatitis B and other vaccines.
 - **Search** across all records by title, doctor, hospital, notes or family member name.
 - **Share with family**: export the whole family, or a single person, as one data file (records and attachments included). Send it by WhatsApp, email, AirDrop, Nearby Share, Drive, and so on. Family members use **Import data file** to merge it into their own app. New entries are added, and when two phones edited the same entry the newest edit wins.
 - **Share with doctors**: generate a clean PDF health summary for a person, or a PDF of a single record with its images embedded.
@@ -34,11 +36,10 @@ npm test           # unit tests
 
 ## Free Android APK from GitHub
 
-Every push runs the **Android APK** workflow (`.github/workflows/android-apk.yml`) on GitHub's free runners. No Expo account is needed.
+The **Android APK** workflow (`.github/workflows/android-apk.yml`) builds the app on GitHub's free runners. No Expo account is needed. It runs only when started by hand: **Actions → Android APK → Run workflow**, choosing `main` to update the download link below.
 
 - **From `main`:** open the repo's **Releases** page on your phone, open **Latest Android build**, tap `family-health-registry.apk`, and allow your browser to install apps when Android asks.
 - **From any branch:** open **Actions → Android APK → the run → Artifacts** and download the zip with the APK (requires being signed in to GitHub).
-- You can also start a build by hand from **Actions → Android APK → Run workflow**.
 
 These APKs are signed with a development key, which is fine for personal and family use. Play Store releases need your own signing key (see below).
 

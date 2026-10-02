@@ -5,13 +5,17 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import * as DB from './db';
 import { buildSeries, formatRange, formatValue, statusOf } from './labAnalysis';
 import * as Labs from './labs';
+import { isCurrent, scheduleText } from './medSchedule';
+import * as Meds from './meds';
+import { sortVaccinations, vaccineStatus } from './vaccineAnalysis';
+import * as Vax from './vaccines';
 import { readAttachmentBase64, shareFile, writeAttachmentFromBase64 } from './files';
 import { ageFrom, escapeHtml, formatDate, safeFileName, todayIso } from './format';
-import { RECORD_TYPES, type Attachment, type LabResult, type MedicalRecord, type Member } from './types';
+import { RECORD_TYPES, type Attachment, type DoseLog, type LabResult, type MedicalRecord, type Medication, type Member, type Vaccination } from './types';
 
 const BUNDLE_FORMAT = 'family-health-registry';
-/** v2 added lab results; v1 files still import. */
-const BUNDLE_VERSION = 2;
+/** v2 added lab results, v3 medicines, v4 vaccinations; older files still import. */
+const BUNDLE_VERSION = 4;
 const SAFE_FILE_NAME = /^[A-Za-z0-9-]+\.[A-Za-z0-9]{1,8}$/;
 
 type BundleAttachment = Attachment & { data: string };
@@ -24,6 +28,9 @@ export type RegistryBundle = {
   records: MedicalRecord[];
   attachments: BundleAttachment[];
   labResults?: LabResult[];
+  medications?: Medication[];
+  doseLogs?: DoseLog[];
+  vaccinations?: Vaccination[];
 };
 
 // ---- Family data file (share with other family members) ---------------------
@@ -42,7 +49,11 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
   const records: MedicalRecord[] = [];
   const attachments: BundleAttachment[] = [];
   const labResults: LabResult[] = [];
+  const medications: Medication[] = [];
+  const vaccinations: Vaccination[] = [];
   for (const m of members) {
+    for (const { memberName: _n, memberColor: _c, ...v } of await Vax.listVaccinations(db, m.id)) vaccinations.push(v);
+    for (const { memberName: _n, memberColor: _c, ...med } of await Meds.listMedications(db, m.id)) medications.push(med);
     for (const { attachmentCount: _count, memberName: _n, memberColor: _c, ...r } of await DB.listRecords(db, m.id)) {
       records.push(r);
       labResults.push(...(await Labs.listResultsForRecord(db, r.id)));
@@ -53,6 +64,8 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
     }
   }
 
+  const doseLogs = await Meds.listAllDoseLogs(db, medications.map((m) => m.id));
+
   const bundle: RegistryBundle = {
     format: BUNDLE_FORMAT,
     version: BUNDLE_VERSION,
@@ -61,6 +74,9 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
     records,
     attachments,
     labResults,
+    medications,
+    doseLogs,
+    vaccinations,
   };
 
   const label = members.length === 1 ? safeFileName(members[0].name) : 'family';
@@ -69,7 +85,14 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
   file.create();
   file.write(JSON.stringify(bundle));
   await shareFile(file.uri, 'application/json', 'Share health records');
-  return { members: members.length, records: records.length, attachments: attachments.length, labResults: labResults.length };
+  return {
+    members: members.length,
+    records: records.length,
+    attachments: attachments.length,
+    labResults: labResults.length,
+    medications: medications.length,
+    vaccinations: vaccinations.length,
+  };
 }
 
 export type ImportResult = {
@@ -79,6 +102,10 @@ export type ImportResult = {
   recordsUpdated: number;
   attachmentsAdded: number;
   labResultsImported: number;
+  medicationsAdded: number;
+  medicationsUpdated: number;
+  vaccinationsAdded: number;
+  vaccinationsUpdated: number;
 };
 
 function parseBundle(text: string): RegistryBundle {
@@ -97,7 +124,10 @@ function parseBundle(text: string): RegistryBundle {
     !Array.isArray(b.members) ||
     !Array.isArray(b.records) ||
     !Array.isArray(b.attachments) ||
-    (b.labResults !== undefined && !Array.isArray(b.labResults))
+    (b.labResults !== undefined && !Array.isArray(b.labResults)) ||
+    (b.medications !== undefined && !Array.isArray(b.medications)) ||
+    (b.doseLogs !== undefined && !Array.isArray(b.doseLogs)) ||
+    (b.vaccinations !== undefined && !Array.isArray(b.vaccinations))
   ) {
     throw new Error('The export file is incomplete or damaged.');
   }
@@ -117,6 +147,10 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
     recordsUpdated: 0,
     attachmentsAdded: 0,
     labResultsImported: 0,
+    medicationsAdded: 0,
+    medicationsUpdated: 0,
+    vaccinationsAdded: 0,
+    vaccinationsUpdated: 0,
   };
   // Records whose shared copy won the merge; their lab results are taken from the file too.
   const recordsTaken = new Set<string>();
@@ -167,9 +201,100 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
         result.labResultsImported += forRecord.length;
       }
     }
+
+    for (const med of (bundle.medications ?? []).filter(isValidMedication)) {
+      if (!(await DB.getMember(db, med.memberId))) continue;
+      const existing = await Meds.getMedication(db, med.id);
+      if (!existing) {
+        // Reminders are per phone: shared medicines stay quiet here until turned on.
+        await Meds.upsertMedication(db, { ...med, remindersOn: false });
+        result.medicationsAdded++;
+      } else if (med.updatedAt > existing.updatedAt) {
+        await Meds.upsertMedication(db, { ...med, remindersOn: existing.remindersOn });
+        result.medicationsUpdated++;
+      }
+    }
+    for (const log of (bundle.doseLogs ?? []).filter(isValidDoseLog)) {
+      if (await Meds.getMedication(db, log.medicationId)) await Meds.insertDoseLogIfMissing(db, log);
+    }
+
+    for (const v of (bundle.vaccinations ?? []).filter(isValidVaccination)) {
+      if (!(await DB.getMember(db, v.memberId))) continue;
+      // Keep the certificate link only if that record exists on this phone.
+      const recordId = v.recordId && (await DB.getRecord(db, v.recordId)) ? v.recordId : null;
+      const existing = await Vax.getVaccination(db, v.id);
+      if (!existing) {
+        await Vax.upsertVaccination(db, { ...v, recordId });
+        result.vaccinationsAdded++;
+      } else if (v.updatedAt > existing.updatedAt) {
+        await Vax.upsertVaccination(db, { ...v, recordId: recordId ?? existing.recordId });
+        result.vaccinationsUpdated++;
+      }
+    }
   });
 
   return result;
+}
+
+const isDateText = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const isTimeText = (v: unknown) => typeof v === 'string' && /^\d{2}:\d{2}$/.test(v);
+
+function isValidMedication(v: unknown): v is Medication {
+  const m = v as Medication;
+  return (
+    !!m &&
+    typeof m.id === 'string' &&
+    typeof m.memberId === 'string' &&
+    typeof m.name === 'string' &&
+    typeof m.dose === 'string' &&
+    typeof m.instructions === 'string' &&
+    Array.isArray(m.times) &&
+    m.times.every(isTimeText) &&
+    (m.frequency === 'daily' || m.frequency === 'weekly') &&
+    Array.isArray(m.days) &&
+    m.days.every((d) => Number.isInteger(d) && d >= 0 && d <= 6) &&
+    isDateText(m.startDate) &&
+    (m.endDate === null || isDateText(m.endDate)) &&
+    (m.stock === null || (typeof m.stock === 'number' && Number.isFinite(m.stock))) &&
+    typeof m.perDose === 'number' &&
+    m.perDose > 0 &&
+    typeof m.notes === 'string' &&
+    typeof m.createdAt === 'string' &&
+    typeof m.updatedAt === 'string'
+  );
+}
+
+function isValidVaccination(v: unknown): v is Vaccination {
+  const x = v as Vaccination;
+  const optionalDate = (d: unknown) => d === null || isDateText(d);
+  return (
+    !!x &&
+    typeof x.id === 'string' &&
+    typeof x.memberId === 'string' &&
+    typeof x.name === 'string' &&
+    typeof x.dose === 'string' &&
+    optionalDate(x.dueDate) &&
+    optionalDate(x.givenDate) &&
+    typeof x.facility === 'string' &&
+    typeof x.notes === 'string' &&
+    (x.recordId === null || typeof x.recordId === 'string') &&
+    (x.scheduleKey === null || typeof x.scheduleKey === 'string') &&
+    typeof x.createdAt === 'string' &&
+    typeof x.updatedAt === 'string'
+  );
+}
+
+function isValidDoseLog(v: unknown): v is DoseLog {
+  const l = v as DoseLog;
+  return (
+    !!l &&
+    typeof l.id === 'string' &&
+    typeof l.medicationId === 'string' &&
+    isDateText(l.date) &&
+    isTimeText(l.time) &&
+    (l.status === 'taken' || l.status === 'skipped') &&
+    typeof l.loggedAt === 'string'
+  );
 }
 
 function isValidLabResult(l: unknown): l is LabResult {
@@ -258,6 +383,10 @@ export async function shareMemberSummaryPdf(db: SQLiteDatabase, memberId: string
   const m = await DB.getMember(db, memberId);
   if (!m) throw new Error('Family member not found.');
   const records = await DB.listRecords(db, memberId);
+  const meds = (await Meds.listMedications(db, memberId)).filter((md) => isCurrent(md, todayIso()));
+  const vaccines = sortVaccinations(await Vax.listVaccinations(db, memberId), todayIso());
+  const givenVaccines = vaccines.filter((v) => v.givenDate);
+  const dueVaccines = vaccines.filter((v) => !v.givenDate && v.dueDate);
   const latestLabs = buildSeries(await Labs.listMemberResults(db, memberId)).map((s) => ({
     name: s.testName,
     value: s.latest.value,
@@ -284,9 +413,41 @@ export async function shareMemberSummaryPdf(db: SQLiteDatabase, memberId: string
     <h2>Profile</h2><table class="grid">${profileRows(m)}</table>
     ${healthSection('Allergies', m.allergies, true)}
     ${healthSection('Medical conditions', m.conditions)}
-    ${healthSection('Current medications', m.medications)}
+    ${
+      meds.length
+        ? `<h2>Current medicines</h2><table><tr><th>Medicine</th><th>Dose</th><th>When</th></tr>${meds
+            .map(
+              (md) =>
+                `<tr><td>${escapeHtml(md.name)}</td><td>${escapeHtml(md.dose)}</td><td>${escapeHtml(
+                  [scheduleText(md), md.instructions].filter(Boolean).join(' · ')
+                )}</td></tr>`
+            )
+            .join('')}</table>`
+        : ''
+    }
+    ${healthSection(meds.length ? 'Other medication notes' : 'Current medications', m.medications)}
     ${healthSection('Notes', m.notes)}
     ${latestLabs.length ? `<h2>Latest lab results</h2>${labTable(latestLabs)}` : ''}
+    ${
+      givenVaccines.length
+        ? `<h2>Vaccinations given (${givenVaccines.length})</h2><table><tr><th>Vaccine</th><th>Dose</th><th>Given</th><th>Where</th></tr>${givenVaccines
+            .map(
+              (v) =>
+                `<tr><td>${escapeHtml(v.name)}</td><td>${escapeHtml(v.dose)}</td><td>${escapeHtml(formatDate(v.givenDate))}</td><td>${escapeHtml(v.facility)}</td></tr>`
+            )
+            .join('')}</table>`
+        : ''
+    }
+    ${
+      dueVaccines.length
+        ? `<h2>Vaccinations due</h2><table><tr><th>Vaccine</th><th>Dose</th><th>Due</th></tr>${dueVaccines
+            .map(
+              (v) =>
+                `<tr><td>${escapeHtml(v.name)}</td><td>${escapeHtml(v.dose)}</td><td class="${vaccineStatus(v, todayIso()) === 'overdue' ? 'high' : ''}">${escapeHtml(formatDate(v.dueDate))}${vaccineStatus(v, todayIso()) === 'overdue' ? ' (overdue)' : ''}</td></tr>`
+            )
+            .join('')}</table>`
+        : ''
+    }
     <h2>Medical history (${records.length})</h2>
     ${records.length ? `<table><tr><th>Date</th><th>Type</th><th>Details</th><th>Doctor / Facility</th></tr>${rows}</table>` : '<div class="muted">No records yet.</div>'}
     <footer>Family Health Registry</footer>

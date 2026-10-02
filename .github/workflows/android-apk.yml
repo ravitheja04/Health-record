@@ -1,13 +1,12 @@
 name: Android APK
 
 # Builds an installable APK on GitHub's free runners (no Expo account needed).
-# Every run uploads the APK as a workflow artifact; runs on main also publish it
-# to the "latest-android" release so it can be downloaded straight to a phone.
+# Started by hand only (Actions -> Android APK -> Run workflow), so features can
+# pile up and be built when wanted. Every run uploads the APK as a workflow
+# artifact; runs on main also publish it to the "latest-android" release so it
+# can be downloaded straight to a phone.
 
 on:
-  push:
-    branches: ['**']
-    paths-ignore: ['**.md']
   workflow_dispatch:
 
 concurrency:
