@@ -1,5 +1,6 @@
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
 
+import { t } from '../i18n';
 import type { WidgetModel } from './widgetData';
 
 /** Opens the Medicines tab (the app's URL scheme is set in app.json). */
@@ -34,8 +35,8 @@ function Message({ p, text }: { p: Palette; text: string }) {
 }
 
 function Body({ model, p }: { model: WidgetModel; p: Palette }) {
-  if (model.kind === 'locked') return <Message p={p} text="App lock is on. Open the app to see today’s doses." />;
-  if (model.kind === 'empty') return <Message p={p} text="No medicines due today." />;
+  if (model.kind === 'locked') return <Message p={p} text={t('App lock is on. Open the app to see today’s doses.')} />;
+  if (model.kind === 'empty') return <Message p={p} text={t('No medicines due today.')} />;
   return (
     <FlexWidget style={{ flexDirection: 'column', width: 'match_parent' }}>
       {model.doses.map((d, i) => (
@@ -65,35 +66,35 @@ function Body({ model, p }: { model: WidgetModel; p: Palette }) {
             <FlexWidget
               clickAction="MARK_TAKEN"
               clickActionData={{ medicationId: d.medicationId, time: d.time }}
-              accessibilityLabel={`Mark ${d.title} at ${d.timeText} as taken`}
+              accessibilityLabel={t('Mark {what} at {time} as taken', { what: d.title, time: d.timeText })}
               style={{ backgroundColor: p.buttonBg, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 6 }}>
-              <TextWidget text="✓ Taken" style={{ fontSize: 12, color: p.primary, fontWeight: 'bold' }} />
+              <TextWidget text={`✓ ${t('Taken')}`} style={{ fontSize: 12, color: p.primary, fontWeight: 'bold' }} />
             </FlexWidget>
           ) : (
             <TextWidget
-              text={d.status === 'taken' ? '✓ Taken' : 'Skipped'}
+              text={d.status === 'taken' ? `✓ ${t('Taken')}` : t('Skipped')}
               style={{ fontSize: 12, color: d.status === 'taken' ? p.ok : p.muted, marginLeft: 6 }}
             />
           )}
         </FlexWidget>
       ))}
-      {model.more ? <TextWidget text={`+${model.more} more`} style={{ fontSize: 12, color: p.muted, marginTop: 2 }} /> : null}
+      {model.more ? <TextWidget text={t('+{n} more', { n: model.more })} style={{ fontSize: 12, color: p.muted, marginTop: 2 }} /> : null}
     </FlexWidget>
   );
 }
 
 function Widget({ model, p }: { model: WidgetModel; p: Palette }) {
   const summary =
-    model.kind === 'doses' ? (model.allDone ? 'All done today' : `${model.taken} of ${model.total} taken`) : '';
+    model.kind === 'doses' ? (model.allDone ? t('All done today') : t('{taken} of {total} taken', { taken: model.taken, total: model.total })) : '';
   return (
     <FlexWidget
       clickAction="OPEN_URI"
       clickActionData={{ uri: MEDICINES_URI }}
-      accessibilityLabel="Today’s medicines. Opens the Medicines tab."
+      accessibilityLabel={t('Today’s medicines. Opens the Medicines tab.')}
       style={{ height: 'match_parent', width: 'match_parent', backgroundColor: p.bg, borderRadius: 16, padding: 12, flexDirection: 'column' }}>
       <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', width: 'match_parent', marginBottom: 4 }}>
         <FlexWidget style={{ flex: 1 }}>
-          <TextWidget text="Today’s medicines" style={{ fontSize: 15, fontWeight: 'bold', color: p.text }} />
+          <TextWidget text={t('Today’s medicines')} style={{ fontSize: 15, fontWeight: 'bold', color: p.text }} />
         </FlexWidget>
         {summary ? <TextWidget text={summary} style={{ fontSize: 12, color: model.kind === 'doses' && model.allDone ? p.ok : p.muted }} /> : null}
       </FlexWidget>

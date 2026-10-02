@@ -4,6 +4,7 @@ import { Modal, Platform, Pressable, Text, View } from 'react-native';
 
 import { Button, colors, styles } from './ui';
 import { toTime } from '@/lib/medSchedule';
+import { t } from '@/i18n';
 
 function timeToDate(time: string) {
   const [h, m] = time.split(':').map(Number);
@@ -52,7 +53,7 @@ export function AddTimeButton({ onPick, initial = '08:00', label = '+ Add time' 
               onValueChange={(_e, date) => setDraft(date)}
             />
             <Button
-              title="Add"
+              title={t('Add')}
               onPress={() => {
                 onPick(toTime(draft.getHours(), draft.getMinutes()));
                 setIosOpen(false);

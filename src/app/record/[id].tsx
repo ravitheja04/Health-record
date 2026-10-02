@@ -16,6 +16,7 @@ import { getTestDef } from '@/lib/labTests';
 import { shareRecordPdf } from '@/lib/share';
 import { showError, useQuery } from '@/lib/useQuery';
 import { RECORD_TYPES, type Attachment } from '@/lib/types';
+import { t } from '@/i18n';
 
 export default function RecordScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,7 +37,7 @@ export default function RecordScreen() {
   if (!data) return null;
   const { record, member, attachments, results } = data;
   if (!record) {
-    return <EmptyState icon="alert-circle-outline" title="Record not found" message="This record may have been deleted." />;
+    return <EmptyState icon="alert-circle-outline" title={t('Record not found')} message={t('This record may have been deleted.')} />;
   }
   const type = RECORD_TYPES[record.type] ?? RECORD_TYPES.other;
 
@@ -46,7 +47,7 @@ export default function RecordScreen() {
       if (!file.exists) throw new Error('The file is missing from this device.');
       await shareFile(file.uri, a.mimeType, a.name);
     } catch (e) {
-      showError('Could not open file', e);
+      showError(t('Could not open file'), e);
     }
   }
 
@@ -55,24 +56,24 @@ export default function RecordScreen() {
     try {
       await shareRecordPdf(db, id);
     } catch (e) {
-      showError('Could not share', e);
+      showError(t('Could not share'), e);
     } finally {
       setSharing(false);
     }
   }
 
   function confirmDelete() {
-    Alert.alert('Delete this record?', 'The record and its attached files will be removed from this phone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('Delete this record?'), t('The record and its attached files will be removed from this phone.'), [
+      { text: t('Cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('Delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             removeAttachmentFiles(await deleteRecord(db, id));
             router.back();
           } catch (e) {
-            showError('Could not delete', e);
+            showError(t('Could not delete'), e);
           }
         },
       },
@@ -86,7 +87,7 @@ export default function RecordScreen() {
           title: type.label,
           headerRight: () => (
             <Pressable
-              accessibilityLabel="Edit record"
+              accessibilityLabel={t('Edit record')}
               hitSlop={8}
               onPress={() => router.push({ pathname: '/record/edit', params: { id } })}>
               <Icon name="create-outline" size={22} color={colors.primary} />
@@ -105,15 +106,15 @@ export default function RecordScreen() {
               {record.title}
             </Text>
           </View>
-          <InfoRow icon="person-outline" label="Patient" value={member?.name} />
-          <InfoRow icon="calendar-outline" label="Date" value={formatDate(record.date)} />
-          <InfoRow icon="pulse-outline" label="Doctor" value={record.doctor} />
-          <InfoRow icon="business-outline" label="Facility" value={record.facility} />
+          <InfoRow icon="person-outline" label={t('Patient')} value={member?.name} />
+          <InfoRow icon="calendar-outline" label={t('Date')} value={formatDate(record.date)} />
+          <InfoRow icon="pulse-outline" label={t('Doctor')} value={record.doctor} />
+          <InfoRow icon="business-outline" label={t('Facility')} value={record.facility} />
         </Card>
 
         {record.notes.trim() ? (
           <Card>
-            <Text style={[styles.label, { marginBottom: 6 }]}>Notes / results</Text>
+            <Text style={[styles.label, { marginBottom: 6 }]}>{t('Notes / results')}</Text>
             <Text style={styles.body} selectable>
               {record.notes}
             </Text>
@@ -126,11 +127,11 @@ export default function RecordScreen() {
               action={
                 results.length > 0 ? (
                   <Pressable hitSlop={8} onPress={() => router.push({ pathname: '/labs/[memberId]', params: { memberId: record.memberId } })}>
-                    <Text style={{ color: colors.primary, fontWeight: '600' }}>See trends</Text>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>{t('See trends')}</Text>
                   </Pressable>
                 ) : undefined
               }>
-              Test results ({results.length})
+              {t('Test results ({n})', { n: results.length })}
             </SectionTitle>
             {results.length > 0 ? (
               <Card style={{ padding: 0, overflow: 'hidden' }}>
@@ -162,7 +163,7 @@ export default function RecordScreen() {
                           <Text style={[styles.body, { fontWeight: '600' }]}>{getTestDef(r.testKey)?.name ?? r.testName}</Text>
                           <StatusChip status={status} />
                         </View>
-                        {range ? <Text style={[styles.subtitle, { marginTop: 0, fontSize: 12 }]}>Range {range}</Text> : null}
+                        {range ? <Text style={[styles.subtitle, { marginTop: 0, fontSize: 12 }]}>{t('Range')}{' '}{range}</Text> : null}
                       </View>
                       <Text style={{ fontSize: 15, fontWeight: '700', color: out ? labColors.out : colors.text }}>
                         {formatValue(r.value)} <Text style={{ fontSize: 12, fontWeight: '500' }}>{r.unit}</Text>
@@ -172,10 +173,10 @@ export default function RecordScreen() {
                 })}
               </Card>
             ) : (
-              <Text style={styles.subtitle}>Type in the values from this report to track them over time.</Text>
+              <Text style={styles.subtitle}>{t('Type in the values from this report to track them over time.')}</Text>
             )}
             <Button
-              title={results.length ? 'Edit test results' : 'Add test results'}
+              title={results.length ? t('Edit test results') : t('Add test results')}
               icon={results.length ? 'create-outline' : 'add-outline'}
               variant="secondary"
               onPress={() => router.push({ pathname: '/record/results', params: { recordId: id } })}
@@ -183,9 +184,9 @@ export default function RecordScreen() {
           </>
         ) : null}
 
-        <SectionTitle>Attachments ({attachments.length})</SectionTitle>
+        <SectionTitle>{t('Attachments ({n})', { n: attachments.length })}</SectionTitle>
         {attachments.length === 0 ? (
-          <Text style={styles.subtitle}>No files attached. Tap the edit icon to add photos or PDFs.</Text>
+          <Text style={styles.subtitle}>{t('No files attached. Tap the edit icon to add photos or PDFs.')}</Text>
         ) : (
           attachments.map((a) => (
             <Card key={a.id} onPress={() => openAttachment(a)}>
@@ -202,7 +203,7 @@ export default function RecordScreen() {
                   <Text style={styles.body} numberOfLines={1}>
                     {a.name}
                   </Text>
-                  <Text style={styles.subtitle}>{formatBytes(a.size)} · tap to open or share</Text>
+                  <Text style={styles.subtitle}>{t('{size} · tap to open or share', { size: formatBytes(a.size) })}</Text>
                 </View>
                 <Icon name="share-social-outline" color={colors.primary} />
               </View>
@@ -210,8 +211,8 @@ export default function RecordScreen() {
           ))
         )}
 
-        <Button title="Share as PDF" icon="document-outline" onPress={sharePdf} loading={sharing} style={{ marginTop: 8 }} />
-        <Button title="Delete record" icon="trash-outline" variant="danger" onPress={confirmDelete} />
+        <Button title={t('Share as PDF')} icon="document-outline" onPress={sharePdf} loading={sharing} style={{ marginTop: 8 }} />
+        <Button title={t('Delete record')} icon="trash-outline" variant="danger" onPress={confirmDelete} />
       </ScrollView>
     </>
   );

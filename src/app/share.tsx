@@ -9,6 +9,7 @@ import { Button, Card, colors, Icon, styles } from '@/components/ui';
 import { syncRemindersQuietly } from '@/lib/reminders';
 import { importRegistryBundle, shareRegistryBundle } from '@/lib/share';
 import { showError } from '@/lib/useQuery';
+import { t } from '@/i18n';
 
 function Step({ n, text }: { n: number; text: string }) {
   return (
@@ -30,9 +31,9 @@ export default function ShareScreen() {
     setBusy('export');
     try {
       const res = await shareRegistryBundle(db);
-      if (res.members === 0) Alert.alert('Nothing to share yet', 'Add a family member first.');
+      if (res.members === 0) Alert.alert(t('Nothing to share yet'), t('Add a family member first.'));
     } catch (e) {
-      showError('Could not export', e);
+      showError(t('Could not export'), e);
     } finally {
       setBusy(null);
     }
@@ -58,11 +59,11 @@ export default function ShareScreen() {
       ];
       syncRemindersQuietly(db);
       Alert.alert(
-        'Import complete',
+        t('Import complete'),
         `${lines.join('\n')}${r.medicationsAdded ? '\n\nReminders for shared medicines are off on this phone. Turn them on per medicine if you want them here.' : ''}`
       );
     } catch (e) {
-      showError('Could not import', e);
+      showError(t('Could not import'), e);
     } finally {
       setBusy(null);
     }
@@ -74,8 +75,8 @@ export default function ShareScreen() {
         <View style={styles.row}>
           <Icon name="sync-outline" color={colors.primary} size={26} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Family sync (automatic)</Text>
-            <Text style={styles.subtitle}>Keep phones in step through Google Drive, encrypted. No files to pass around.</Text>
+            <Text style={styles.title}>{t('Family sync (automatic)')}</Text>
+            <Text style={styles.subtitle}>{t('Keep phones in step through Google Drive, encrypted. No files to pass around.')}</Text>
           </View>
           <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
         </View>
@@ -84,27 +85,27 @@ export default function ShareScreen() {
       <Card>
         <View style={styles.row}>
           <Icon name="cloud-upload-outline" color={colors.primary} size={26} />
-          <Text style={[styles.title, { flex: 1 }]}>Send the whole family registry</Text>
+          <Text style={[styles.title, { flex: 1 }]}>{t('Send the whole family registry')}</Text>
         </View>
         <Text style={[styles.subtitle, { marginVertical: 8 }]}>
-          Creates one file with every member, record and attachment. Send it over WhatsApp, email, AirDrop, Nearby Share or save it to Drive/iCloud as a backup.
+          {t('Creates one file with every member, record and attachment. Send it over WhatsApp, email, AirDrop, Nearby Share or save it to Drive/iCloud as a backup.')}
         </Text>
-        <Button title="Share family data file" icon="share-social-outline" onPress={exportAll} loading={busy === 'export'} />
+        <Button title={t('Share family data file')} icon="share-social-outline" onPress={exportAll} loading={busy === 'export'} />
       </Card>
 
       <Card>
         <View style={styles.row}>
           <Icon name="cloud-download-outline" color={colors.primary} size={26} />
-          <Text style={[styles.title, { flex: 1 }]}>Receive records from family</Text>
+          <Text style={[styles.title, { flex: 1 }]}>{t('Receive records from family')}</Text>
         </View>
         <Text style={[styles.subtitle, { marginVertical: 8 }]}>
-          Open a data file someone shared with you. New members and records are added; if both phones edited the same record, the most recent edit is kept.
+          {t('Open a data file someone shared with you. New members and records are added; if both phones edited the same record, the most recent edit is kept.')}
         </Text>
-        <Button title="Import data file" icon="cloud-download-outline" variant="secondary" onPress={importFile} loading={busy === 'import'} />
+        <Button title={t('Import data file')} icon="cloud-download-outline" variant="secondary" onPress={importFile} loading={busy === 'import'} />
       </Card>
 
       <Card>
-        <Text style={styles.title}>How family sharing works</Text>
+        <Text style={styles.title}>{t('How family sharing works')}</Text>
         <Step n={1} text="Each family member installs the app on their own phone." />
         <Step n={2} text="Whoever adds new reports taps “Share family data file” (or “Send to family” on one person’s profile)." />
         <Step n={3} text="The others save the file and tap “Import data file”. Everyone now has the same records." />
@@ -114,7 +115,7 @@ export default function ShareScreen() {
       <View style={[styles.row, { paddingHorizontal: 4, alignItems: 'flex-start' }]}>
         <Icon name="shield-checkmark-outline" color={colors.muted} size={18} />
         <Text style={[styles.subtitle, { flex: 1, marginTop: 0 }]}>
-          Your records are stored only on this phone. Data files contain private medical information — share them only with people you trust.
+          {t('Your records are stored only on this phone. Data files contain private medical information — share them only with people you trust.')}
         </Text>
       </View>
     </ScrollView>

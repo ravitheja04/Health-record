@@ -6,6 +6,7 @@ import { decrypt, encrypt, fromBase64, toBase64, utf8, WrongKeyError } from './c
 import { DriveError, type DriveClient } from './drive';
 import { isSnapshot, mergeDirectory, snapshotFingerprintText, type Peer, type Snapshot } from './snapshot';
 import { getSyncState, saveSyncState } from './state';
+import { t } from '../../i18n';
 
 export type SyncDeps = {
   db: SQLiteDatabase;
@@ -45,7 +46,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncReport> {
     try {
       const modified = await drive.publicModifiedTime(peer.fileId);
       if (modified === null) {
-        peers[i] = { ...peer, lastError: 'Not found on Drive. That phone may have left the family.' };
+        peers[i] = { ...peer, lastError: t('Not found on Drive. That phone may have left the family.') };
         continue;
       }
       if (modified === peer.lastModified && !peer.lastError) {
@@ -53,7 +54,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncReport> {
         continue;
       }
       const snapshot: unknown = JSON.parse(utf8.decode(decrypt(key, await drive.publicDownload(peer.fileId))));
-      if (!isSnapshot(snapshot)) throw new Error('Not a family sync file.');
+      if (!isSnapshot(snapshot)) throw new Error(t('Not a family sync file.'));
       const { missingFiles } = await mergeRegistryBundle(db, validateBundle(snapshot.bundle));
       for (const a of missingFiles) {
         const driveFileId = snapshot.files[a.id];
@@ -63,14 +64,14 @@ export async function runSync(deps: SyncDeps): Promise<SyncReport> {
           if (await addSyncedAttachment(db, a, toBase64(bytes))) report.filesReceived++;
           await db.runAsync('INSERT OR REPLACE INTO sync_files (attachmentId, driveFileId) VALUES (?, ?)', a.id, driveFileId);
         } catch (e) {
-          report.problems.push(`A file from ${snapshot.deviceName}: ${message(e)}`);
+          report.problems.push(`${t('A file from {name}', { name: snapshot.deviceName })}: ${message(e)}`);
         }
       }
       peers[i] = { fileId: peer.fileId, name: snapshot.deviceName || peer.name, lastModified: modified, lastError: null };
       peers = mergeDirectory(peers, snapshot.directory, state.myFileId);
       report.received.push({ name: peers[i].name, changed: true });
     } catch (e) {
-      const text = e instanceof WrongKeyError ? 'Uses a different family code. Ask them to join with yours.' : message(e);
+      const text = e instanceof WrongKeyError ? t('Uses a different family code. Ask them to join with yours.') : message(e);
       peers[i] = { ...peer, lastError: text };
       report.problems.push(`${peer.name}: ${text}`);
     }
@@ -82,7 +83,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncReport> {
     try {
       await upload(deps, state.myFileId, state.folderId, state.lastHash, state.deviceName, peers, report);
     } catch (e) {
-      report.problems.push(e instanceof DriveError && e.status === 401 ? e.message : `Uploading: ${message(e)}`);
+      report.problems.push(e instanceof DriveError && e.status === 401 ? e.message : `${t('Uploading')}: ${message(e)}`);
     }
   }
 

@@ -14,6 +14,7 @@ import { useQuery } from '@/lib/useQuery';
 import { listVitals } from '@/lib/vitals';
 import { vitalDef } from '@/lib/vitalsAnalysis';
 import type { VitalType } from '@/lib/types';
+import { t } from '@/i18n';
 
 const COLORS: Record<GrowthKind, string> = { weight: '#0891B2', height: '#4F46E5', head: '#CA8A04', bmi: '#7C3AED' };
 
@@ -34,14 +35,14 @@ export default function GrowthScreen() {
 
   if (!data) return null;
   const { member, vitals } = data;
-  if (!member) return <EmptyState icon="alert-circle-outline" title="Member not found" message="This family member may have been deleted." />;
+  if (!member) return <EmptyState icon="alert-circle-outline" title={t('Member not found')} message={t('This family member may have been deleted.')} />;
   const title = `${member.name.split(' ')[0]} · Growth`;
   if (!member.dob) {
     return (
       <>
         <Stack.Screen options={{ title }} />
-        <EmptyState icon="calendar-outline" title="Date of birth needed" message="Growth is compared by age. Add the date of birth to this profile first.">
-          <Button title="Edit profile" icon="create-outline" onPress={() => router.push({ pathname: '/member/edit', params: { id: member.id } })} />
+        <EmptyState icon="calendar-outline" title={t('Date of birth needed')} message={t('Growth is compared by age. Add the date of birth to this profile first.')}>
+          <Button title={t('Edit profile')} icon="create-outline" onPress={() => router.push({ pathname: '/member/edit', params: { id: member.id } })} />
         </EmptyState>
       </>
     );
@@ -55,7 +56,7 @@ export default function GrowthScreen() {
   const inWhoAge = Math.min(todayDays, latest?.days ?? todayDays) <= WHO_MAX_DAYS;
   const curves = sex && inWhoAge ? referenceCurves(kind, sex, Math.max(todayDays, latest?.days ?? 0, 180)) : null;
   const statusKey = growthStatus(latest?.z ?? null);
-  const status = { text: STATUS_TEXT[statusKey], color: statusKey === 'usual' ? colors.okText : colors.warnText };
+  const status = { text: STATUS_TEXT[statusKey] && t(STATUS_TEXT[statusKey]), color: statusKey === 'usual' ? colors.okText : colors.warnText };
   const logType: VitalType = kind === 'bmi' ? 'height' : kind;
   const add = (type: VitalType = logType) => router.push({ pathname: '/vitals/add', params: { memberId: member.id, type } });
   const kinds = GROWTH_KINDS.filter((k) => k.kind !== 'head' || todayDays <= WHO_MAX_DAYS);
@@ -66,7 +67,7 @@ export default function GrowthScreen() {
         options={{
           title,
           headerRight: () => (
-            <Pressable accessibilityLabel="Add a measurement" hitSlop={8} onPress={() => add()}>
+            <Pressable accessibilityLabel={t('Add a measurement')} hitSlop={8} onPress={() => add()}>
               <Icon name="add-outline" size={26} color={colors.primary} />
             </Pressable>
           ),
@@ -93,7 +94,7 @@ export default function GrowthScreen() {
               <Text style={{ fontSize: 15, color: colors.muted }}>{def.unit}</Text>
             </View>
             <Text style={styles.subtitle}>
-              At {ageText(latest.days)} · {formatDate(latest.measuredAt.slice(0, 10))}
+              {t('At')}{' '}{ageText(latest.days)} · {formatDate(latest.measuredAt.slice(0, 10))}
               {latest.percentile !== null ? ` · ${percentileText(latest.percentile)}` : ''}
             </Text>
             {status.text ? <Text style={{ fontWeight: '600', color: status.color }}>{status.text}</Text> : null}
@@ -103,32 +104,32 @@ export default function GrowthScreen() {
                 <GrowthChart points={points} curves={curves} unit={def.unit} color={COLORS[kind]} />
                 {curves ? (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 }}>
-                    <Text style={{ fontSize: 12, color: '#16A34A', fontWeight: '600' }}>— WHO median</Text>
-                    <Text style={{ fontSize: 12, color: colors.cautionText, fontWeight: '600' }}>- - usual range (±2 SD)</Text>
-                    <Text style={{ fontSize: 12, color: colors.danger, fontWeight: '600' }}>··· ±3 SD</Text>
+                    <Text style={{ fontSize: 12, color: '#16A34A', fontWeight: '600' }}>{t('— WHO median')}</Text>
+                    <Text style={{ fontSize: 12, color: colors.cautionText, fontWeight: '600' }}>{t('- - usual range (±2 SD)')}</Text>
+                    <Text style={{ fontSize: 12, color: colors.danger, fontWeight: '600' }}>{t('··· ±3 SD')}</Text>
                   </View>
                 ) : null}
               </View>
             ) : null}
             {!sex ? (
-              <Text style={[styles.hint, { lineHeight: 18 }]}>WHO charts differ for boys and girls. Set Male or Female on the profile to compare.</Text>
+              <Text style={[styles.hint, { lineHeight: 18 }]}>{t('WHO charts differ for boys and girls. Set Male or Female on the profile to compare.')}</Text>
             ) : !inWhoAge ? (
-              <Text style={[styles.hint, { lineHeight: 18 }]}>WHO growth standards in the app cover birth to 5 years, so older measurements are shown without reference lines.</Text>
+              <Text style={[styles.hint, { lineHeight: 18 }]}>{t('WHO growth standards in the app cover birth to 5 years, so older measurements are shown without reference lines.')}</Text>
             ) : null}
           </Card>
         ) : (
           <Card style={{ gap: 8, alignItems: 'center', paddingVertical: 24 }}>
             <Icon name="resize-outline" size={32} color={colors.muted} />
             <Text style={styles.subtitle}>
-              {kind === 'bmi' ? 'BMI needs a weight and a height measured within 30 days of each other.' : `No ${def.label.toLowerCase()} measurements yet.`}
+              {kind === 'bmi' ? t('BMI needs a weight and a height measured within 30 days of each other.') : t('No {what} measurements yet.', { what: t(def.label).toLowerCase() })}
             </Text>
-            <Button title={`Add ${vitalDef(logType).label.toLowerCase()}`} icon="add-outline" onPress={() => add()} />
+            <Button title={t('Add {what}', { what: vitalDef(logType).label.toLowerCase() })} icon="add-outline" onPress={() => add()} />
           </Card>
         )}
 
         {points.length ? (
           <>
-            <SectionTitle>All measurements ({points.length})</SectionTitle>
+            <SectionTitle>{t('All measurements ({n})', { n: points.length })}</SectionTitle>
             <Card style={{ padding: 0, overflow: 'hidden' }}>
               {[...points].reverse().map((p, i) => (
                 <View
@@ -151,13 +152,12 @@ export default function GrowthScreen() {
         ) : null}
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Button style={{ flex: 1 }} title="Add weight" icon="barbell-outline" variant="secondary" onPress={() => add('weight')} />
-          <Button style={{ flex: 1 }} title="Add height" icon="resize-outline" variant="secondary" onPress={() => add('height')} />
+          <Button style={{ flex: 1 }} title={t('Add weight')} icon="barbell-outline" variant="secondary" onPress={() => add('weight')} />
+          <Button style={{ flex: 1 }} title={t('Add height')} icon="resize-outline" variant="secondary" onPress={() => add('height')} />
         </View>
-        {todayDays <= WHO_MAX_DAYS ? <Button title="Add head size" icon="happy-outline" variant="secondary" onPress={() => add('head')} /> : null}
+        {todayDays <= WHO_MAX_DAYS ? <Button title={t('Add head size')} icon="happy-outline" variant="secondary" onPress={() => add('head')} /> : null}
         <Text style={[styles.subtitle, { lineHeight: 18 }]}>
-          Compared with the WHO Child Growth Standards (birth to 5 years). Children grow differently; the trend over time says more than
-          one measurement. Your child’s doctor can tell you what’s right for them.
+          {t('Compared with the WHO Child Growth Standards (birth to 5 years). Children grow differently; the trend over time says more than one measurement. Your child’s doctor can tell you what’s right for them.')}
         </Text>
       </ScrollView>
     </>

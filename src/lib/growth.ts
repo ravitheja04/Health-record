@@ -1,6 +1,7 @@
 import { bmi, evaluate, valueAtZScore, type Indicator, type Sex } from 'who-growth-standards';
 
 import type { Vital } from './types';
+import { t, tn } from '../i18n';
 
 /**
  * Children's growth against the WHO Child Growth Standards (birth to 5 years),
@@ -12,10 +13,38 @@ import type { Vital } from './types';
 export type GrowthKind = 'weight' | 'height' | 'head' | 'bmi';
 
 export const GROWTH_KINDS: { kind: GrowthKind; label: string; unit: string; indicator: Indicator }[] = [
-  { kind: 'weight', label: 'Weight', unit: 'kg', indicator: 'wfa' },
-  { kind: 'height', label: 'Height', unit: 'cm', indicator: 'lhfa' },
-  { kind: 'head', label: 'Head size', unit: 'cm', indicator: 'hcfa' },
-  { kind: 'bmi', label: 'BMI', unit: 'kg/m²', indicator: 'bfa' },
+  {
+    kind: 'weight',
+    get label() {
+      return t('Weight');
+    },
+    unit: 'kg',
+    indicator: 'wfa',
+  },
+  {
+    kind: 'height',
+    get label() {
+      return t('Height');
+    },
+    unit: 'cm',
+    indicator: 'lhfa',
+  },
+  {
+    kind: 'head',
+    get label() {
+      return t('Head size');
+    },
+    unit: 'cm',
+    indicator: 'hcfa',
+  },
+  {
+    kind: 'bmi',
+    get label() {
+      return t('BMI');
+    },
+    unit: 'kg/m²',
+    indicator: 'bfa',
+  },
 ];
 
 /** WHO publishes these tables to 1856 days (5 years and a bit). */
@@ -38,13 +67,13 @@ export function ageDays(dob: string, on: string) {
 
 /** "3 days", "5 weeks", "7 months", "2 y 4 m" */
 export function ageText(days: number) {
-  if (days < 14) return `${days} day${days === 1 ? '' : 's'}`;
-  if (days < 90) return `${Math.round(days / 7)} weeks`;
+  if (days < 14) return tn(days, '{n} day', '{n} days');
+  if (days < 90) return t('{n} weeks', { n: Math.round(days / 7) });
   const months = Math.floor(days / 30.4375);
-  if (months < 24) return `${months} months`;
+  if (months < 24) return t('{n} months', { n: months });
   const years = Math.floor(months / 12);
   const rest = months % 12;
-  return rest ? `${years} y ${rest} m` : `${years} years`;
+  return rest ? t('{y} y {m} m', { y: years, m: rest }) : t('{n} years', { n: years });
 }
 
 export type GrowthPoint = {
@@ -114,10 +143,10 @@ export function growthStatus(z: number | null): GrowthStatus {
 /** "42nd percentile" */
 export function percentileText(p: number) {
   const n = p < 1 ? '<1' : p > 99 ? '>99' : String(Math.round(p));
-  if (n.startsWith('<') || n.startsWith('>')) return `${n} percentile`;
+  if (n.startsWith('<') || n.startsWith('>')) return t('{n} percentile', { n });
   const last = Number(n) % 100;
-  const suffix = last >= 11 && last <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][Number(n) % 10] ?? 'th';
-  return `${n}${suffix} percentile`;
+  const suffix = last >= 11 && last <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][Number(n) % 10] ?? 'th');
+  return t('{n}{suffix} percentile', { n, suffix });
 }
 
 const WEEK = 7;

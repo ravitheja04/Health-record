@@ -3,6 +3,7 @@ import { dateToMs } from './labAnalysis';
 import { addDays } from './medSchedule';
 import type { ScheduleAge, VaccineSchedule } from './vaccineSchedules';
 import type { Vaccination } from './types';
+import { t, tn } from '../i18n';
 
 /** A vaccine counts as "due soon" this many days ahead. */
 export const DUE_SOON_DAYS = 30;
@@ -36,7 +37,7 @@ export function vaccineStatus(v: Pick<Vaccination, 'dueDate' | 'givenDate'>, tod
 export function planFromSchedule(
   schedule: VaccineSchedule,
   dob: string,
-  existing: Pick<Vaccination, 'scheduleKey'>[]
+  existing: Pick<Vaccination, 'scheduleKey'>[],
 ): { scheduleKey: string; name: string; dose: string; dueDate: string; ageLabel: string }[] {
   const have = new Set(existing.map((v) => v.scheduleKey).filter(Boolean));
   return schedule.doses
@@ -70,11 +71,41 @@ export function vaccineSummary(list: Pick<Vaccination, 'dueDate' | 'givenDate'>[
 }
 
 export const STATUS_STYLE: Record<VaccineStatus, { label: string; color: string; bg: string }> = {
-  overdue: { label: 'Overdue', color: '#9A3412', bg: '#FFEDD5' },
-  due: { label: 'Due soon', color: '#1E40AF', bg: '#DBEAFE' },
-  upcoming: { label: 'Upcoming', color: '#475569', bg: '#F1F5F9' },
-  undated: { label: 'No date', color: '#475569', bg: '#F1F5F9' },
-  given: { label: 'Given', color: '#166534', bg: '#DCFCE7' },
+  overdue: {
+    get label() {
+      return t('Overdue');
+    },
+    color: '#9A3412',
+    bg: '#FFEDD5',
+  },
+  due: {
+    get label() {
+      return t('Due soon');
+    },
+    color: '#1E40AF',
+    bg: '#DBEAFE',
+  },
+  upcoming: {
+    get label() {
+      return t('Upcoming');
+    },
+    color: '#475569',
+    bg: '#F1F5F9',
+  },
+  undated: {
+    get label() {
+      return t('No date');
+    },
+    color: '#475569',
+    bg: '#F1F5F9',
+  },
+  given: {
+    get label() {
+      return t('Given');
+    },
+    color: '#166534',
+    bg: '#DCFCE7',
+  },
 };
 
 function daysFromToday(date: string, today: string) {
@@ -83,9 +114,11 @@ function daysFromToday(date: string, today: string) {
 
 export function vaccineDetail(v: Pick<Vaccination, 'dueDate' | 'givenDate' | 'facility'>, today: string) {
   const status = vaccineStatus(v, today);
-  if (status === 'given') return `Given ${formatDate(v.givenDate)}${v.facility ? ` · ${v.facility}` : ''}`;
-  if (status === 'undated') return 'No due date set';
+  if (status === 'given') return `${t('Given {date}', { date: formatDate(v.givenDate) })}${v.facility ? ` · ${v.facility}` : ''}`;
+  if (status === 'undated') return t('No due date set');
   const days = daysFromToday(v.dueDate!, today);
-  if (status === 'overdue') return `Was due ${formatDate(v.dueDate)} (${-days} day${days === -1 ? '' : 's'} ago)`;
-  return `Due ${formatDate(v.dueDate)}${days === 0 ? ' (today)' : ` (in ${days} day${days === 1 ? '' : 's'})`}`;
+  if (status === 'overdue')
+    return tn(-days, 'Was due {date} ({n} day ago)', 'Was due {date} ({n} days ago)').replace('{date}', formatDate(v.dueDate));
+  if (days === 0) return t('Due {date} (today)', { date: formatDate(v.dueDate) });
+  return tn(days, 'Due {date} (in {n} day)', 'Due {date} (in {n} days)').replace('{date}', formatDate(v.dueDate));
 }

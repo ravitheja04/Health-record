@@ -12,6 +12,7 @@ import { changeBetween, formatValue, statusOf, type LabPoint } from '@/lib/labAn
 import { listMemberResults } from '@/lib/labs';
 import { getTestDef, PANELS, panelOf } from '@/lib/labTests';
 import { useQuery } from '@/lib/useQuery';
+import { t } from '@/i18n';
 
 type Report = { recordId: string; date: string; title: string };
 
@@ -68,7 +69,7 @@ export default function CompareScreen() {
   }
   reports.sort((a, b) => b.date.localeCompare(a.date));
   if (reports.length < 2) {
-    return <EmptyState icon="swap-vertical-outline" title="Need two reports" message="Add test results from at least two lab reports to compare them." />;
+    return <EmptyState icon="swap-vertical-outline" title={t('Need two reports')} message={t('Add test results from at least two lab reports to compare them.')} />;
   }
 
   const after = afterId ?? reports[0].recordId;
@@ -97,42 +98,42 @@ export default function CompareScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Compare reports' }} />
+      <Stack.Screen options={{ title: t('Compare reports') }} />
       <ScrollView
         style={styles.screen}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-        <ReportPicker label="Before" reports={reports} value={before} onChange={(id) => (id === after ? null : setBeforeId(id))} />
-        <ReportPicker label="After" reports={reports} value={after} onChange={(id) => (id === before ? null : setAfterId(id))} />
+        <ReportPicker label={t('Before')} reports={reports} value={before} onChange={(id) => (id === after ? null : setBeforeId(id))} />
+        <ReportPicker label={t('After')} reports={reports} value={after} onChange={(id) => (id === before ? null : setAfterId(id))} />
         {beforeReport.date > afterReport.date ? (
-          <Text style={[styles.subtitle, { color: labColors.outText }]}>“Before” is newer than “After”, so changes read backwards.</Text>
+          <Text style={[styles.subtitle, { color: labColors.outText }]}>{t('“Before” is newer than “After”, so changes read backwards.')}</Text>
         ) : null}
 
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <View style={{ flex: 1, backgroundColor: colors.infoBg, borderRadius: 12, padding: 10 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: colors.infoText }}>{toward}</Text>
-            <Text style={{ fontSize: 12, color: colors.infoText }}>toward range</Text>
+            <Text style={{ fontSize: 12, color: colors.infoText }}>{t('toward range')}</Text>
           </View>
           <View style={{ flex: 1, backgroundColor: colors.warnBg, borderRadius: 12, padding: 10 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: labColors.outText }}>{away}</Text>
-            <Text style={{ fontSize: 12, color: labColors.outText }}>away from range</Text>
+            <Text style={{ fontSize: 12, color: labColors.outText }}>{t('away from range')}</Text>
           </View>
           <View style={{ flex: 1, backgroundColor: colors.subtle, borderRadius: 12, padding: 10 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: colors.label }}>{same}</Text>
-            <Text style={{ fontSize: 12, color: colors.label }}>steady</Text>
+            <Text style={{ fontSize: 12, color: colors.label }}>{t('steady')}</Text>
           </View>
         </View>
 
         <Card style={{ padding: 0, overflow: 'hidden' }}>
           <View style={{ flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.subtle, gap: 6 }}>
-            <Text style={{ flex: 1, fontSize: 11, fontWeight: '700', color: colors.muted }}>TEST</Text>
+            <Text style={{ flex: 1, fontSize: 11, fontWeight: '700', color: colors.muted }}>{t('TEST')}</Text>
             <Text style={{ width: COL, textAlign: 'right', fontSize: 11, fontWeight: '700', color: colors.muted }}>
               {shortLabel(beforeReport.date).toUpperCase()}
             </Text>
             <Text style={{ width: COL, textAlign: 'right', fontSize: 11, fontWeight: '700', color: colors.muted }}>
               {shortLabel(afterReport.date).toUpperCase()}
             </Text>
-            <Text style={{ width: COL + 6, textAlign: 'right', fontSize: 11, fontWeight: '700', color: colors.muted }}>CHANGE</Text>
+            <Text style={{ width: COL + 6, textAlign: 'right', fontSize: 11, fontWeight: '700', color: colors.muted }}>{t('CHANGE')}</Text>
           </View>
           {PANELS.map((panel) => {
             const list = rows.filter((r) => r.panel === panel.key).sort((x, y) => x.name.localeCompare(y.name));
@@ -167,11 +168,11 @@ export default function CompareScreen() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           <View style={[styles.row, { gap: 5 }]}>
             <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: labColors.out }} />
-            <Text style={[styles.subtitle, { marginTop: 0, fontSize: 12 }]}>Outside the report’s range</Text>
+            <Text style={[styles.subtitle, { marginTop: 0, fontSize: 12 }]}>{t('Outside the report’s range')}</Text>
           </View>
           <View style={[styles.row, { gap: 5 }]}>
             <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: labColors.toward }} />
-            <Text style={[styles.subtitle, { marginTop: 0, fontSize: 12 }]}>Moved toward range</Text>
+            <Text style={[styles.subtitle, { marginTop: 0, fontSize: 12 }]}>{t('Moved toward range')}</Text>
           </View>
         </View>
       </ScrollView>

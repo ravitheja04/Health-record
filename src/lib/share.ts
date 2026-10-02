@@ -17,6 +17,7 @@ import * as Vitals from './vitals';
 import { readAttachmentBase64, shareFile, writeAttachmentFromBase64 } from './files';
 import { ageFrom, escapeHtml, formatDate, safeFileName, todayIso } from './format';
 import { RECORD_TYPES, type Attachment, type DoseLog, type LabResult, type EmergencyInfo, type MedicalRecord, type Medication, type Member, type Vaccination, type Vital } from './types';
+import { t } from '../i18n';
 
 const BUNDLE_FORMAT = 'family-health-registry';
 /** v2 added lab results, v3 medicines, v4 vaccinations, v5 emergency cards, v6 vitals; older files still import. */
@@ -143,16 +144,16 @@ function parseBundle(text: string): RegistryBundle {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error('This file is not a Family Health Registry export.');
+    throw new Error(t('This file is not a Family Health Registry export.'));
   }
   return validateBundle(data);
 }
 
 export function validateBundle(data: unknown): RegistryBundle {
   const b = data as Partial<RegistryBundle>;
-  if (b?.format !== BUNDLE_FORMAT) throw new Error('This file is not a Family Health Registry export.');
+  if (b?.format !== BUNDLE_FORMAT) throw new Error(t('This file is not a Family Health Registry export.'));
   if (typeof b.version !== 'number' || b.version > BUNDLE_VERSION) {
-    throw new Error('This file was made by a newer version of the app. Please update the app and try again.');
+    throw new Error(t('This file was made by a newer version of the app. Please update the app and try again.'));
   }
   if (
     !Array.isArray(b.members) ||
@@ -165,7 +166,7 @@ export function validateBundle(data: unknown): RegistryBundle {
     (b.emergencyInfo !== undefined && !Array.isArray(b.emergencyInfo)) ||
     (b.vitals !== undefined && !Array.isArray(b.vitals))
   ) {
-    throw new Error('The export file is incomplete or damaged.');
+    throw new Error(t('The export file is incomplete or damaged.'));
   }
   return b as RegistryBundle;
 }
@@ -490,7 +491,7 @@ async function printAndShare(html: string, baseName: string) {
 
 export async function shareMemberSummaryPdf(db: SQLiteDatabase, memberId: string) {
   const m = await DB.getMember(db, memberId);
-  if (!m) throw new Error('Family member not found.');
+  if (!m) throw new Error(t('Family member not found.'));
   const records = await DB.listRecords(db, memberId);
   const meds = (await Meds.listMedications(db, memberId)).filter((md) => isCurrent(md, todayIso()));
   const vaccines = sortVaccinations(await Vax.listVaccinations(db, memberId), todayIso());
@@ -567,7 +568,7 @@ export async function shareMemberSummaryPdf(db: SQLiteDatabase, memberId: string
 
 export async function shareRecordPdf(db: SQLiteDatabase, recordId: string) {
   const r = await DB.getRecord(db, recordId);
-  if (!r) throw new Error('Record not found.');
+  if (!r) throw new Error(t('Record not found.'));
   const m = await DB.getMember(db, r.memberId);
   const attachments = await DB.listAttachments(db, recordId);
   const results = await Labs.listResultsForRecord(db, recordId);
@@ -609,7 +610,7 @@ export async function shareRecordPdf(db: SQLiteDatabase, recordId: string) {
 /** A one-page emergency card with the QR code, to print, keep in a wallet or send. */
 export async function shareEmergencyPdf(db: SQLiteDatabase, memberId: string) {
   const m = await DB.getMember(db, memberId);
-  if (!m) throw new Error('Family member not found.');
+  if (!m) throw new Error(t('Family member not found.'));
   const info = await Emergency.getEmergencyInfo(db, memberId);
   const meds = (await Meds.listMedications(db, memberId))
     .filter((md) => isCurrent(md, todayIso()))

@@ -16,6 +16,7 @@ import { deleteMedication, getMedication, upsertMedication } from '@/lib/meds';
 import { requestNotificationPermission, syncRemindersQuietly } from '@/lib/reminders';
 import { showError } from '@/lib/useQuery';
 import type { Medication, Member } from '@/lib/types';
+import { t } from '@/i18n';
 
 const PRESET_TIMES = [
   { label: 'Morning', time: '08:00' },
@@ -64,7 +65,7 @@ export default function EditMedicineScreen() {
       setMed(m);
       setStockText(m.stock === null ? '' : String(m.stock));
       setPerDoseText(String(m.perDose));
-    })().catch((e) => showError('Could not load medicine', e));
+    })().catch((e) => showError(t('Could not load medicine'), e));
   }, [db, params.id, params.memberId]);
 
   if (!med) return null;
@@ -78,40 +79,40 @@ export default function EditMedicineScreen() {
   async function save(overrides: Partial<Medication> = {}) {
     if (!med) return;
     const m = { ...med, ...overrides };
-    if (!m.memberId) return Alert.alert('Choose a family member', 'Select who takes this medicine.');
-    if (!m.name.trim()) return Alert.alert('Name required', 'Enter the medicine’s name, e.g. Metformin.');
-    if (m.times.length === 0) return Alert.alert('Add a time', 'Add at least one time of day to take it.');
-    if (m.frequency === 'weekly' && m.days.length === 0) return Alert.alert('Choose days', 'Pick the days of the week to take it.');
-    if (!isValidDate(m.startDate)) return Alert.alert('Check the start date', 'Enter it as DD/MM/YYYY.');
-    if (m.endDate !== null && !isValidDate(m.endDate)) return Alert.alert('Check the end date', 'Enter it as DD/MM/YYYY, or clear it.');
-    if (m.endDate !== null && m.endDate < m.startDate) return Alert.alert('Check the dates', 'The last day is before the start date.');
+    if (!m.memberId) return Alert.alert(t('Choose a family member'), t('Select who takes this medicine.'));
+    if (!m.name.trim()) return Alert.alert(t('Name required'), t('Enter the medicine’s name, e.g. Metformin.'));
+    if (m.times.length === 0) return Alert.alert(t('Add a time'), t('Add at least one time of day to take it.'));
+    if (m.frequency === 'weekly' && m.days.length === 0) return Alert.alert(t('Choose days'), t('Pick the days of the week to take it.'));
+    if (!isValidDate(m.startDate)) return Alert.alert(t('Check the start date'), t('Enter it as DD/MM/YYYY.'));
+    if (m.endDate !== null && !isValidDate(m.endDate)) return Alert.alert(t('Check the end date'), t('Enter it as DD/MM/YYYY, or clear it.'));
+    if (m.endDate !== null && m.endDate < m.startDate) return Alert.alert(t('Check the dates'), t('The last day is before the start date.'));
     const stock = stockText.trim() ? parseNumber(stockText) : null;
     const perDose = parseNumber(perDoseText);
-    if (stockText.trim() && (stock === null || stock < 0)) return Alert.alert('Check the stock', 'Tablets left must be a number.');
-    if (perDose === null || perDose <= 0) return Alert.alert('Check the dose', 'Tablets per dose must be a number above 0.');
+    if (stockText.trim() && (stock === null || stock < 0)) return Alert.alert(t('Check the stock'), t('Tablets left must be a number.'));
+    if (perDose === null || perDose <= 0) return Alert.alert(t('Check the dose'), t('Tablets per dose must be a number above 0.'));
 
     setSaving(true);
     try {
       await upsertMedication(db, { ...m, name: m.name.trim(), dose: m.dose.trim(), stock, perDose, updatedAt: new Date().toISOString() });
       if (m.remindersOn && !(await requestNotificationPermission())) {
         Alert.alert(
-          'Reminders are off',
-          'Notifications are turned off for this app. Turn them on in your phone’s Settings to get medicine reminders.'
+          t('Reminders are off'),
+          t('Notifications are turned off for this app. Turn them on in your phone’s Settings to get medicine reminders.')
         );
       }
       syncRemindersQuietly(db);
       router.back();
     } catch (e) {
-      showError('Could not save medicine', e);
+      showError(t('Could not save medicine'), e);
       setSaving(false);
     }
   }
 
   function confirmDelete() {
-    Alert.alert('Delete this medicine?', 'Its reminders and dose history will be removed. To keep the history, use “Stop taking” instead.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('Delete this medicine?'), t('Its reminders and dose history will be removed. To keep the history, use “Stop taking” instead.'), [
+      { text: t('Cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('Delete'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -119,7 +120,7 @@ export default function EditMedicineScreen() {
             syncRemindersQuietly(db);
             router.back();
           } catch (e) {
-            showError('Could not delete', e);
+            showError(t('Could not delete'), e);
           }
         },
       },
@@ -143,48 +144,49 @@ export default function EditMedicineScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, { gap: 16, paddingBottom: insets.bottom + 24 }]}>
         <ChipSelect
-          label="Family member *"
+          label={t('Family member *')}
           options={members.map((m) => m.id)}
           value={med.memberId || null}
           onChange={(v) => set('memberId', v ?? '')}
           renderLabel={(id) => members.find((m) => m.id === id)?.name ?? ''}
         />
-        <Field label="Medicine name *" value={med.name} onChangeText={(v) => set('name', v)} placeholder="e.g. Metformin" autoFocus={!params.id} />
-        <Field label="Dose" value={med.dose} onChangeText={(v) => set('dose', v)} placeholder="e.g. 500 mg, 1 tablet, 5 ml" />
+        <Field label={t('Medicine name *')} value={med.name} onChangeText={(v) => set('name', v)} placeholder={t('e.g. Metformin')} autoFocus={!params.id} />
+        <Field label={t('Dose')} value={med.dose} onChangeText={(v) => set('dose', v)} placeholder={t('e.g. 500 mg, 1 tablet, 5 ml')} />
         <ChipSelect
-          label="When to take it"
+          label={t('When to take it')}
           options={INSTRUCTIONS}
           value={INSTRUCTIONS.includes(med.instructions) ? med.instructions : null}
           onChange={(v) => set('instructions', v ?? '')}
+          renderLabel={(v) => t(v)}
         />
 
         <View style={styles.field}>
-          <Text style={styles.label}>Times of day *</Text>
+          <Text style={styles.label}>{t('Times of day *')}</Text>
           <View style={styles.chips}>
-            {med.times.map((t) => (
+            {med.times.map((time) => (
               <Pressable
-                key={t}
+                key={time}
                 accessibilityRole="button"
-                accessibilityLabel={`Remove ${formatTime(t)}`}
-                onPress={() => set('times', med.times.filter((x) => x !== t))}
+                accessibilityLabel={t('Remove {time}', { time: formatTime(time) })}
+                onPress={() => set('times', med.times.filter((x) => x !== time))}
                 style={[styles.chip, styles.chipSelected, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
-                <Text style={[styles.chipText, styles.chipTextSelected]}>{formatTime(t)}</Text>
+                <Text style={[styles.chipText, styles.chipTextSelected]}>{formatTime(time)}</Text>
                 <Icon name="close-outline" size={16} color="#FFFFFF" />
               </Pressable>
             ))}
             {PRESET_TIMES.filter((p) => !med.times.includes(p.time)).map((p) => (
               <Pressable key={p.time} accessibilityRole="button" onPress={() => addTime(p.time)} style={styles.chip}>
                 <Text style={styles.chipText}>
-                  + {p.label} {formatTime(p.time)}
+                  + {t(p.label)} {formatTime(p.time)}
                 </Text>
               </Pressable>
             ))}
-            <AddTimeButton onPick={addTime} label="+ Other time" />
+            <AddTimeButton onPick={addTime} label={t('+ Other time')} />
           </View>
         </View>
 
         <ChipSelect
-          label="How often"
+          label={t('How often')}
           options={['daily', 'weekly'] as const}
           value={med.frequency}
           onChange={(v) => set('frequency', v ?? 'daily')}
@@ -208,56 +210,56 @@ export default function EditMedicineScreen() {
           </View>
         ) : null}
 
-        <DateField label="Start date" value={med.startDate} onChange={(v) => set('startDate', v ?? '')} />
+        <DateField label={t('Start date')} value={med.startDate} onChange={(v) => set('startDate', v ?? '')} />
         <DateField
-          label="Last day (optional)"
+          label={t('Last day (optional)')}
           value={med.endDate}
           onChange={(v) => set('endDate', v)}
-          hint="Leave empty for medicines taken long term. For a course, e.g. 5 days of antibiotics, enter the last day."
+          hint={t('Leave empty for medicines taken long term. For a course, e.g. 5 days of antibiotics, enter the last day.')}
         />
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field label="Tablets left" value={stockText} onChangeText={setStockText} keyboardType="decimal-pad" placeholder="Not tracked" />
+            <Field label={t('Tablets left')} value={stockText} onChangeText={setStockText} keyboardType="decimal-pad" placeholder={t('Not tracked')} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Tablets per dose" value={perDoseText} onChangeText={setPerDoseText} keyboardType="decimal-pad" />
+            <Field label={t('Tablets per dose')} value={perDoseText} onChangeText={setPerDoseText} keyboardType="decimal-pad" />
           </View>
         </View>
         <Text style={[styles.hint, { marginTop: -8 }]}>
-          {stockPreview ?? 'Optional. The count goes down as doses are marked taken, and you get a refill warning a few days before it runs out.'}
+          {stockPreview ?? t('Optional. The count goes down as doses are marked taken, and you get a refill warning a few days before it runs out.')}
         </Text>
 
         <View style={[styles.row, { backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 12 }]}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Remind me on this phone</Text>
-            <Text style={styles.subtitle}>A notification at each time above</Text>
+            <Text style={styles.title}>{t('Remind me on this phone')}</Text>
+            <Text style={styles.subtitle}>{t('A notification at each time above')}</Text>
           </View>
           <Switch
             value={med.remindersOn}
             onValueChange={(v) => set('remindersOn', v)}
-            accessibilityLabel="Remind me on this phone"
+            accessibilityLabel={t('Remind me on this phone')}
             trackColor={{ true: colors.primary, false: colors.border }}
           />
         </View>
 
-        <Field label="Notes" value={med.notes} onChangeText={(v) => set('notes', v)} placeholder="Prescribed by, purpose, side effects to watch…" multiline />
+        <Field label={t('Notes')} value={med.notes} onChangeText={(v) => set('notes', v)} placeholder={t('Prescribed by, purpose, side effects to watch…')} multiline />
 
-        <Button title={params.id ? 'Save changes' : 'Add medicine'} icon="checkmark" onPress={() => save()} loading={saving} />
+        <Button title={params.id ? t('Save changes') : t('Add medicine')} icon="checkmark" onPress={() => save()} loading={saving} />
         {params.id && !stopped ? (
           <Button
-            title="Stop taking"
+            title={t('Stop taking')}
             icon="stop-circle-outline"
             variant="secondary"
             onPress={() =>
-              Alert.alert('Stop this medicine?', `It will end today (${formatDate(todayIso())}) and its reminders stop. History is kept.`, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Stop', onPress: () => save({ endDate: todayIso() }) },
+              Alert.alert(t('Stop this medicine?'), t('It will end today ({date}) and its reminders stop. History is kept.', { date: formatDate(todayIso()) }), [
+                { text: t('Cancel'), style: 'cancel' },
+                { text: t('Stop'), onPress: () => save({ endDate: todayIso() }) },
               ])
             }
           />
         ) : null}
-        {params.id ? <Button title="Delete medicine" icon="trash-outline" variant="danger" onPress={confirmDelete} /> : null}
+        {params.id ? <Button title={t('Delete medicine')} icon="trash-outline" variant="danger" onPress={confirmDelete} /> : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

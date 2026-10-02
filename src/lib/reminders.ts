@@ -7,6 +7,7 @@ import { addDays, daysOfSupply, isCurrent, isDueOn, needsRefill } from './medSch
 import { listMedications, type MedicationWithMember } from './meds';
 import { listVaccinations } from './vaccines';
 import { refreshMedicinesWidget } from '../widget/refresh';
+import { t, tn } from '../i18n';
 
 const CHANNEL_ID = 'medicine-reminders';
 const PREFIXES = ['med:', 'refill:', 'vac:'];
@@ -71,7 +72,7 @@ export async function syncReminders(db: SQLiteDatabase) {
   await Promise.all(
     scheduled
       .filter((n) => PREFIXES.some((p) => n.identifier.startsWith(p)))
-      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier))
+      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
   );
   if (!(await hasNotificationPermission())) return;
   await ensureChannel();
@@ -127,8 +128,10 @@ export async function syncReminders(db: SQLiteDatabase) {
       await Notifications.scheduleNotificationAsync({
         identifier: `refill:${med.id}`,
         content: {
-          title: `Refill soon: ${med.name}`,
-          body: `${med.memberName} has about ${days} day${days === 1 ? '' : 's'} of ${med.name} left.`,
+          title: t('Refill soon: {med}', { med: med.name }),
+          body: tn(days, '{name} has about {n} day of {med} left.', '{name} has about {n} days of {med} left.')
+            .replace('{name}', med.memberName)
+            .replace('{med}', med.name),
           data: { url: '/medicines' },
         },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: tomorrowMorning, channelId: CHANNEL_ID },
@@ -143,8 +146,16 @@ async function scheduleVaccineReminders(db: SQLiteDatabase, today: string, now: 
   for (const v of due) {
     const what = [v.name, v.dose].filter(Boolean).join(' · ');
     const reminders = [
-      { date: addDays(v.dueDate!, -7), title: `Vaccination next week: ${what}`, body: `${v.memberName} is due on ${v.dueDate!.split('-').reverse().join('/')}.` },
-      { date: v.dueDate!, title: `Vaccination due today: ${what}`, body: `${v.memberName} is due today. Mark it as given once done.` },
+      {
+        date: addDays(v.dueDate!, -7),
+        title: t('Vaccination next week: {what}', { what }),
+        body: t('{name} is due on {date}.', { name: v.memberName, date: v.dueDate!.split('-').reverse().join('/') }),
+      },
+      {
+        date: v.dueDate!,
+        title: t('Vaccination due today: {what}', { what }),
+        body: t('{name} is due today. Mark it as given once done.', { name: v.memberName }),
+      },
     ];
     for (const r of reminders) {
       const when = at(r.date, '09:00');

@@ -1,3 +1,5 @@
+import { t } from '../i18n';
+
 /**
  * Common lab tests, grouped into the panels labs usually print together.
  * Ranges are typical adult values used only to pre-fill the form; the user is
@@ -16,14 +18,54 @@ export type LabTestDef = {
 export type PanelKey = 'diabetes' | 'lipid' | 'thyroid' | 'kidney' | 'liver' | 'blood' | 'vitamins' | 'other';
 
 export const PANELS: { key: PanelKey; label: string }[] = [
-  { key: 'diabetes', label: 'Diabetes' },
-  { key: 'lipid', label: 'Lipid profile' },
-  { key: 'thyroid', label: 'Thyroid' },
-  { key: 'kidney', label: 'Kidney' },
-  { key: 'liver', label: 'Liver' },
-  { key: 'blood', label: 'Blood count' },
-  { key: 'vitamins', label: 'Vitamins & minerals' },
-  { key: 'other', label: 'Other tests' },
+  {
+    key: 'diabetes',
+    get label() {
+      return t('Diabetes');
+    },
+  },
+  {
+    key: 'lipid',
+    get label() {
+      return t('Lipid profile');
+    },
+  },
+  {
+    key: 'thyroid',
+    get label() {
+      return t('Thyroid');
+    },
+  },
+  {
+    key: 'kidney',
+    get label() {
+      return t('Kidney');
+    },
+  },
+  {
+    key: 'liver',
+    get label() {
+      return t('Liver');
+    },
+  },
+  {
+    key: 'blood',
+    get label() {
+      return t('Blood count');
+    },
+  },
+  {
+    key: 'vitamins',
+    get label() {
+      return t('Vitamins & minerals');
+    },
+  },
+  {
+    key: 'other',
+    get label() {
+      return t('Other tests');
+    },
+  },
 ];
 
 export const LAB_TESTS: LabTestDef[] = [

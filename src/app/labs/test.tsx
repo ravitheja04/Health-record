@@ -11,6 +11,7 @@ import { formatDate, todayIso } from '@/lib/format';
 import { buildSeries, changeBetween, formatRange, formatValue, statusOf, testCadence } from '@/lib/labAnalysis';
 import { listMemberResults } from '@/lib/labs';
 import { useQuery } from '@/lib/useQuery';
+import { t, tn } from '@/i18n';
 
 export default function LabTestScreen() {
   const { memberId, testKey } = useLocalSearchParams<{ memberId: string; testKey: string }>();
@@ -24,7 +25,7 @@ export default function LabTestScreen() {
 
   if (series === undefined) return null;
   if (series === null) {
-    return <EmptyState icon="flask-outline" title="No results" message="This test has no results any more." />;
+    return <EmptyState icon="flask-outline" title={t('No results')} message={t('This test has no results any more.')} />;
   }
 
   const { latest, previous, points, unit } = series;
@@ -55,7 +56,7 @@ export default function LabTestScreen() {
             {previous ? ` · since ${formatDate(previous.date)}: ` : ''}
             {previous ? <ChangeText change={series.change} style={{ fontSize: 13 }} /> : null}
           </Text>
-          <Text style={styles.subtitle}>{range ? `Normal range on latest report: ${range}` : 'The latest report gives no normal range.'}</Text>
+          <Text style={styles.subtitle}>{range ? t('Normal range on latest report: {range}', { range }) : t('The latest report gives no normal range.')}</Text>
 
           {chartPoints.length > 1 ? (
             <View style={{ marginTop: 8 }}>
@@ -63,28 +64,29 @@ export default function LabTestScreen() {
               {latest.refLow !== null || latest.refHigh !== null ? (
                 <View style={[styles.row, { gap: 6, marginTop: 4 }]}>
                   <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: labColors.band }} />
-                  <Text style={[styles.subtitle, { marginTop: 0, fontSize: 12 }]}>Normal range</Text>
+                  <Text style={[styles.subtitle, { marginTop: 0, fontSize: 12 }]}>{t('Normal range')}</Text>
                 </View>
               ) : null}
             </View>
           ) : (
-            <Text style={[styles.subtitle, { marginTop: 8 }]}>Add this test from another report to see a trend chart.</Text>
+            <Text style={[styles.subtitle, { marginTop: 8 }]}>{t('Add this test from another report to see a trend chart.')}</Text>
           )}
         </Card>
 
         {cadence ? (
           <Card>
             <Text style={styles.title}>
-              Tested about every {cadence.months} month{cadence.months === 1 ? '' : 's'}
+              {tn(cadence.months, 'Tested about every {n} month', 'Tested about every {n} months')}
             </Text>
             <Text style={styles.subtitle}>
-              {cadence.nextDate >= todayIso() ? 'Next one would be around ' : 'At that pace one was due around '}
-              {formatDate(cadence.nextDate)}
+              {cadence.nextDate >= todayIso()
+                ? t('Next one would be around {date}', { date: formatDate(cadence.nextDate) })
+                : t('At that pace one was due around {date}', { date: formatDate(cadence.nextDate) })}
             </Text>
           </Card>
         ) : null}
 
-        <SectionTitle>All results ({points.length})</SectionTitle>
+        <SectionTitle>{t('All results ({n})', { n: points.length })}</SectionTitle>
         <Card style={{ padding: 0, overflow: 'hidden' }}>
           {newestFirst.map((p, i) => {
             const before = newestFirst[i + 1] ?? null;
@@ -126,7 +128,7 @@ export default function LabTestScreen() {
         </Card>
 
         <Text style={[styles.subtitle, { lineHeight: 18 }]}>
-          Ranges come from each lab report. Talk to your doctor about what these results mean for you.
+          {t('Ranges come from each lab report. Talk to your doctor about what these results mean for you.')}
         </Text>
       </ScrollView>
     </>

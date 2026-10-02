@@ -1,4 +1,5 @@
 import { gcm } from '@noble/ciphers/aes.js';
+import { t } from '../../i18n';
 
 /**
  * End-to-end encryption for family sync. Every file put on Google Drive is
@@ -61,12 +62,12 @@ export function encrypt(key: Uint8Array, plaintext: Uint8Array, random: (n: numb
 export class WrongKeyError extends Error {}
 
 export function decrypt(key: Uint8Array, text: string) {
-  if (!text.startsWith(MAGIC)) throw new WrongKeyError('Not a family sync file.');
+  if (!text.startsWith(MAGIC)) throw new WrongKeyError(t('Not a family sync file.'));
   const raw = fromBase64(text.slice(MAGIC.length).trim());
   try {
     return gcm(key, raw.subarray(0, 12)).decrypt(raw.subarray(12));
   } catch {
     // GCM authentication fails for a different family's key or a damaged file.
-    throw new WrongKeyError('This file was made by a different family or is damaged.');
+    throw new WrongKeyError(t('This file was made by a different family or is damaged.'));
   }
 }

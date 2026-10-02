@@ -11,7 +11,9 @@ import { applyPalette } from './ui';
 
 type Scheme = 'light' | 'dark';
 
-const current = (): Scheme => (Appearance.getColorScheme() === 'dark' ? 'dark' : 'light');
+let pref: ThemePref = 'system';
+
+const current = (): Scheme => (pref !== 'system' ? pref : Appearance.getColorScheme() === 'dark' ? 'dark' : 'light');
 
 let scheme: Scheme = current();
 applyPalette(scheme);
@@ -32,8 +34,10 @@ function update() {
 Appearance.addChangeListener(update);
 AppState.addEventListener('change', update);
 
-export function setThemePref(pref: ThemePref) {
-  Appearance.setColorScheme(pref === 'system' ? 'unspecified' : pref);
+export function setThemePref(next: ThemePref) {
+  pref = next;
+  // Native date pickers and alerts follow the app's choice too (not available on web).
+  Appearance.setColorScheme?.(next === 'system' ? 'unspecified' : next);
   update();
 }
 

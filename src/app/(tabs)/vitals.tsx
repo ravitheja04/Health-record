@@ -11,6 +11,7 @@ import { useQuery } from '@/lib/useQuery';
 import { ageFrom } from '@/lib/format';
 import { formatVital, latestByType, vitalsForAge, vitalStatus, whenText } from '@/lib/vitalsAnalysis';
 import { listVitals } from '@/lib/vitals';
+import { t } from '@/i18n';
 
 export default function VitalsTab() {
   const params = useLocalSearchParams<{ memberId?: string }>();
@@ -27,7 +28,7 @@ export default function VitalsTab() {
       options={{
         headerRight: () =>
           memberId ? (
-            <Pressable accessibilityLabel="Log a reading" hitSlop={8} style={{ marginRight: 16 }} onPress={add}>
+            <Pressable accessibilityLabel={t('Log a reading')} hitSlop={8} style={{ marginRight: 16 }} onPress={add}>
               <Icon name="add-outline" size={26} color={colors.primary} />
             </Pressable>
           ) : null,
@@ -39,7 +40,7 @@ export default function VitalsTab() {
     return (
       <>
         {header}
-        <EmptyState icon="pulse-outline" title="No family members yet" message="Add a family member to log blood pressure, sugar and more." />
+        <EmptyState icon="pulse-outline" title={t('No family members yet')} message={t('Add a family member to log blood pressure, sugar and more.')} />
       </>
     );
   }
@@ -78,7 +79,7 @@ export default function VitalsTab() {
               <Pressable
                 key={def.type}
                 accessibilityRole="button"
-                accessibilityLabel={`${def.label}${v ? `, latest ${formatVital(v)} ${def.unit}` : ', no readings'}`}
+                accessibilityLabel={`${def.label}, ${v ? t('latest {value}', { value: `${formatVital(v)} ${def.unit}` }) : t('no readings')}`}
                 onPress={() => router.push({ pathname: '/vitals/[type]', params: { type: def.type, memberId } })}
                 style={({ pressed }) => [styles.card, { width: '48%', flexGrow: 1, gap: 4 }, pressed && styles.pressed]}>
                 <View style={[styles.row, { gap: 6 }]}>
@@ -101,24 +102,24 @@ export default function VitalsTab() {
                     <Sparkline values={history.map((x) => x.value)} color={def.color} width={120} />
                   </>
                 ) : (
-                  <Text style={[styles.subtitle, { marginTop: 4 }]}>No readings yet</Text>
+                  <Text style={[styles.subtitle, { marginTop: 4 }]}>{t('No readings yet')}</Text>
                 )}
               </Pressable>
             );
           })}
         </View>
 
-        <Button title="Log a reading" icon="add-outline" onPress={add} />
+        <Button title={t('Log a reading')} icon="add-outline" onPress={add} />
         {age !== null && age < 18 ? (
           <Button
-            title="Growth chart"
+            title={t('Growth chart')}
             icon="trending-up-outline"
             variant="secondary"
             onPress={() => router.push({ pathname: '/growth/[memberId]', params: { memberId } })}
           />
         ) : null}
         <Text style={[styles.subtitle, { lineHeight: 18 }]}>
-          Typical ranges are general adult guides, not targets. Your doctor may set different ones for you.
+          {t('Typical ranges are general adult guides, not targets. Your doctor may set different ones for you.')}
         </Text>
       </ScrollView>
     </>

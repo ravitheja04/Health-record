@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
 import { Button, Card, colors, EmptyState, Icon, SectionTitle, styles } from '@/components/ui';
+import { vaccineColors } from '@/components/VitalStatus';
 import { getMember } from '@/lib/db';
 import { ageFrom, todayIso } from '@/lib/format';
 import { syncRemindersQuietly } from '@/lib/reminders';
@@ -19,6 +20,7 @@ import {
   type VaccineStatus,
 } from '@/lib/vaccineAnalysis';
 import { listVaccinations, markPastDosesGiven, setGivenDate, type VaccinationWithMember } from '@/lib/vaccines';
+import { t } from '@/i18n';
 
 function ProgressRing({ given, total }: { given: number; total: number }) {
   const r = 26;
@@ -55,7 +57,7 @@ export default function VaccinesScreen() {
 
   if (!data) return null;
   const { member, list } = data;
-  if (!member) return <EmptyState icon="alert-circle-outline" title="Member not found" message="This family member may have been deleted." />;
+  if (!member) return <EmptyState icon="alert-circle-outline" title={t('Member not found')} message={t('This family member may have been deleted.')} />;
 
   const sorted = sortVaccinations(list, today);
   const summary = vaccineSummary(list, today);
@@ -71,35 +73,35 @@ export default function VaccinesScreen() {
       refresh();
       syncRemindersQuietly(db);
     } catch (e) {
-      showError('Could not update', e);
+      showError(t('Could not update'), e);
     }
   }
 
   function actions(v: VaccinationWithMember) {
     const title = [v.name, v.dose].filter(Boolean).join(' · ');
-    const edit = { text: 'Edit or other date…', onPress: () => router.push({ pathname: '/vaccines/edit', params: { id: v.id } }) };
+    const edit = { text: t('Edit or other date…'), onPress: () => router.push({ pathname: '/vaccines/edit', params: { id: v.id } }) };
     if (v.givenDate) {
-      Alert.alert(title, vaccineDetail(v, today), [edit, { text: 'Mark as not given', onPress: () => setGiven(v.id, null) }, { text: 'Cancel', style: 'cancel' }]);
+      Alert.alert(title, vaccineDetail(v, today), [edit, { text: t('Mark as not given'), onPress: () => setGiven(v.id, null) }, { text: t('Cancel'), style: 'cancel' }]);
     } else {
-      Alert.alert(title, vaccineDetail(v, today), [{ text: 'Given today', onPress: () => setGiven(v.id, today) }, edit, { text: 'Cancel', style: 'cancel' }]);
+      Alert.alert(title, vaccineDetail(v, today), [{ text: t('Given today'), onPress: () => setGiven(v.id, today) }, edit, { text: t('Cancel'), style: 'cancel' }]);
     }
   }
 
   function markPast() {
     Alert.alert(
-      'Mark past doses as given?',
+      t('Mark past doses as given?'),
       `${pastFromSchedule} overdue dose${pastFromSchedule === 1 ? '' : 's'} from the schedule will be marked as given on their due dates. Use this if ${firstName} was vaccinated before you started using the app. You can correct any date afterwards.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('Cancel'), style: 'cancel' },
         {
-          text: 'Mark as given',
+          text: t('Mark as given'),
           onPress: async () => {
             try {
               await markPastDosesGiven(db, memberId, today);
               refresh();
               syncRemindersQuietly(db);
             } catch (e) {
-              showError('Could not update', e);
+              showError(t('Could not update'), e);
             }
           },
         },
@@ -119,9 +121,9 @@ export default function VaccinesScreen() {
     <>
       <Stack.Screen
         options={{
-          title: `${firstName}’s vaccinations`,
+          title: t('{name}’s vaccinations', { name: firstName }),
           headerRight: () => (
-            <Pressable accessibilityLabel="Add vaccination" hitSlop={8} onPress={() => router.push({ pathname: '/vaccines/edit', params: { memberId } })}>
+            <Pressable accessibilityLabel={t('Add vaccination')} hitSlop={8} onPress={() => router.push({ pathname: '/vaccines/edit', params: { memberId } })}>
               <Icon name="add-outline" size={26} color={colors.primary} />
             </Pressable>
           ),
@@ -137,16 +139,16 @@ export default function VaccinesScreen() {
               <ProgressRing given={summary.given} total={summary.total} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.title, { fontSize: 18 }]}>
-                  {summary.given} of {summary.total} given
+                  {t('{given} of {total} given', { given: summary.given, total: summary.total })}
                 </Text>
                 <Text style={styles.subtitle}>
                   {[
-                    summary.overdue ? `${summary.overdue} overdue` : null,
-                    summary.due ? `${summary.due} due soon` : null,
-                    summary.upcoming ? `${summary.upcoming} upcoming` : null,
+                    summary.overdue ? t('{n} overdue', { n: summary.overdue }) : null,
+                    summary.due ? t('{n} due soon', { n: summary.due }) : null,
+                    summary.upcoming ? t('{n} upcoming', { n: summary.upcoming }) : null,
                   ]
                     .filter(Boolean)
-                    .join(' · ') || 'Nothing due'}
+                    .join(' · ') || t('Nothing due')}
                 </Text>
               </View>
             </View>
@@ -155,37 +157,36 @@ export default function VaccinesScreen() {
 
         {isChild && !fromSchedule ? (
           <Card style={{ gap: 8 }}>
-            <Text style={styles.title}>Add {firstName}’s vaccination schedule</Text>
+            <Text style={styles.title}>{t('Add {name}’s vaccination schedule', { name: firstName })}</Text>
             <Text style={styles.subtitle}>
-              Fill in every childhood vaccine with due dates worked out from the date of birth, using the government (NIS) or IAP
-              schedule.
+              {t('Fill in every childhood vaccine with due dates worked out from the date of birth, using the government (NIS) or IAP schedule.')}
             </Text>
-            <Button title="Choose a schedule" icon="calendar-outline" onPress={() => router.push({ pathname: '/vaccines/schedule', params: { memberId } })} />
+            <Button title={t('Choose a schedule')} icon="calendar-outline" onPress={() => router.push({ pathname: '/vaccines/schedule', params: { memberId } })} />
           </Card>
         ) : null}
 
         {!list.length && !isChild ? (
           <EmptyState
             icon="shield-checkmark-outline"
-            title="No vaccinations yet"
-            message="Add vaccines like the yearly flu shot, COVID-19, Tdap or hepatitis B, with the date given or when the next dose is due.">
-            <Button title="Add vaccination" icon="add-outline" onPress={() => router.push({ pathname: '/vaccines/edit', params: { memberId } })} />
+            title={t('No vaccinations yet')}
+            message={t('Add vaccines like the yearly flu shot, COVID-19, Tdap or hepatitis B, with the date given or when the next dose is due.')}>
+            <Button title={t('Add vaccination')} icon="add-outline" onPress={() => router.push({ pathname: '/vaccines/edit', params: { memberId } })} />
           </EmptyState>
         ) : null}
 
         {pastFromSchedule > 1 ? (
-          <Button title={`Already given? Mark ${pastFromSchedule} past doses as given`} icon="checkmark-done-outline" variant="secondary" onPress={markPast} />
+          <Button title={t('Already given? Mark {n} past doses as given', { n: pastFromSchedule })} icon="checkmark-done-outline" variant="secondary" onPress={markPast} />
         ) : null}
 
         {sections.map(({ status, title }) => {
           const items = sorted.filter((v) => vaccineStatus(v, today) === status);
           if (!items.length) return null;
-          const style = STATUS_STYLE[status];
+          const style = { ...STATUS_STYLE[status], ...vaccineColors(status) };
           return (
             <View key={status} style={{ gap: 8 }}>
               <SectionTitle>
                 <Text style={status === 'overdue' ? { color: style.color } : undefined}>
-                  {title} ({items.length})
+                  {t(title)} ({items.length})
                 </Text>
               </SectionTitle>
               <Card style={{ padding: 0, overflow: 'hidden' }}>
@@ -240,13 +241,12 @@ export default function VaccinesScreen() {
 
         {fromSchedule ? (
           <Text style={[styles.subtitle, { lineHeight: 18 }]}>
-            Schedule dates are typical ages worked out from the date of birth. Your paediatrician may advise different timing; tap any
-            dose to change it.
+            {t('Schedule dates are typical ages worked out from the date of birth. Your paediatrician may advise different timing; tap any dose to change it.')}
           </Text>
         ) : null}
         {isChild && fromSchedule ? (
           <Pressable onPress={() => router.push({ pathname: '/vaccines/schedule', params: { memberId } })}>
-            <Text style={{ color: colors.primary, fontWeight: '600', textAlign: 'center' }}>Add doses from another schedule</Text>
+            <Text style={{ color: colors.primary, fontWeight: '600', textAlign: 'center' }}>{t('Add doses from another schedule')}</Text>
           </Pressable>
         ) : null}
       </ScrollView>

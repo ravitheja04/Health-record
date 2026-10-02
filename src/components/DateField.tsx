@@ -4,6 +4,7 @@ import { Modal, Platform, Pressable, Text, TextInput, View } from 'react-native'
 
 import { Button, colors, Icon, styles } from './ui';
 import { dateToIso, indianToIso, isoToDate, isoToIndian, isValidDate, maskIndianDate } from '@/lib/format';
+import { t } from '@/i18n';
 
 type Props = {
   label: string;
@@ -57,16 +58,16 @@ export function DateField({ label, value, onChange, hint, pickYearFirst, allowFu
         <TextInput
           value={text}
           onChangeText={onType}
-          placeholder="DD/MM/YYYY"
+          placeholder={t('DD/MM/YYYY')}
           placeholderTextColor={colors.placeholder}
           keyboardType="number-pad"
           maxLength={10}
-          accessibilityLabel={`${label}, day month year`}
+          accessibilityLabel={t('{label}, day month year', { label })}
           style={[styles.input, { flex: 1 }, looksFinished && { borderColor: colors.danger }]}
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Pick ${label.toLowerCase()} from a calendar`}
+          accessibilityLabel={t('Pick {label} from a calendar', { label: label.toLowerCase() })}
           onPress={openPicker}
           style={({ pressed }) => [
             {
@@ -84,7 +85,7 @@ export function DateField({ label, value, onChange, hint, pickYearFirst, allowFu
         </Pressable>
       </View>
       {looksFinished ? (
-        <Text style={[styles.hint, { color: colors.danger }]}>That date doesn’t exist. Check the day and month.</Text>
+        <Text style={[styles.hint, { color: colors.danger }]}>{t('That date doesn’t exist. Check the day and month.')}</Text>
       ) : hint ? (
         <Text style={styles.hint}>{hint}</Text>
       ) : null}
@@ -102,7 +103,7 @@ export function DateField({ label, value, onChange, hint, pickYearFirst, allowFu
               onValueChange={(_e, date) => setIosDraft(date)}
             />
             <Button
-              title="Done"
+              title={t('Done')}
               onPress={() => {
                 onChange(dateToIso(iosDraft));
                 setIosOpen(false);

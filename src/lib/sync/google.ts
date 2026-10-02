@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { t } from '../../i18n';
 
 /**
  * Google sign-in for family sync, asking only for the `drive.file`
@@ -55,7 +56,7 @@ export async function signInWithGoogle(): Promise<GoogleAccount | null> {
     if (isErrorWithCode(e) && e.code === statusCodes.IN_PROGRESS) return null;
     if (isErrorWithCode(e) && String(e.code) === '10') {
       // DEVELOPER_ERROR: the Android OAuth client doesn't match this app's package name and signing key.
-      throw new Error('Google sign-in isn’t set up for this app yet (DEVELOPER_ERROR). Check the Android OAuth client in the setup guide.');
+      throw new Error(t('Google sign-in isn’t set up for this app yet (DEVELOPER_ERROR). Check the Android OAuth client in the setup guide.'));
     }
     throw e;
   }

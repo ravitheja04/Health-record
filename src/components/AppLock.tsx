@@ -5,6 +5,7 @@ import { AppState, StyleSheet, Text, View } from 'react-native';
 
 import { Button, colors, Icon } from './ui';
 import { getLockConfig, onLockConfigChange, saveLockConfig, type LockConfig } from '@/lib/settings';
+import { t } from '@/i18n';
 
 /** Asks for fingerprint, face or the phone's PIN. Never throws. */
 export async function verifyOwner(promptMessage: string) {
@@ -116,12 +117,12 @@ export function AppLock() {
       <View style={[styles.badge, { backgroundColor: colors.primary }]}>
         <Icon name="lock-closed" size={36} color="#FFFFFF" />
       </View>
-      <Text style={[styles.title, { color: colors.text }]}>Family Health Registry</Text>
+      <Text style={[styles.title, { color: colors.text }]}>{t('Family Health Registry')}</Text>
       {locked ? (
         <>
-          <Text style={[styles.subtitle, { color: colors.muted }]}>Locked to keep your family’s health records private.</Text>
+          <Text style={[styles.subtitle, { color: colors.muted }]}>{t('Locked to keep your family’s health records private.')}</Text>
           {message ? <Text style={[styles.message, { color: colors.danger }]}>{message}</Text> : null}
-          <Button title="Unlock" icon="finger-print" onPress={unlock} style={{ alignSelf: 'stretch', marginTop: 24 }} />
+          <Button title={t('Unlock')} icon="finger-print" onPress={unlock} style={{ alignSelf: 'stretch', marginTop: 24 }} />
         </>
       ) : null}
     </View>

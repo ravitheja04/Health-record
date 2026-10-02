@@ -12,6 +12,7 @@ import { formatDate } from '@/lib/format';
 import { buildSeries, summarize, type TestSeries } from '@/lib/labAnalysis';
 import { listMemberResults } from '@/lib/labs';
 import { useQuery } from '@/lib/useQuery';
+import { t, tn } from '@/i18n';
 
 function Stat({ value, label, color, bg }: { value: number; label: string; color: string; bg: string }) {
   return (
@@ -64,11 +65,11 @@ export default function LabTrendsScreen() {
         <Stack.Screen options={{ title }} />
         <EmptyState
           icon="flask-outline"
-          title="No test results yet"
-          message="Read a lab report PDF from Apollo, Tata 1mg or another lab, or add a report and type in the values. Each new report adds a point to the trend.">
-          <Button title="Read a lab report PDF" icon="scan-outline" onPress={() => router.push({ pathname: '/record/import', params: { memberId } })} />
+          title={t('No test results yet')}
+          message={t('Read a lab report PDF from Apollo, Tata 1mg or another lab, or add a report and type in the values. Each new report adds a point to the trend.')}>
+          <Button title={t('Read a lab report PDF')} icon="scan-outline" onPress={() => router.push({ pathname: '/record/import', params: { memberId } })} />
           <Button
-            title="Add a lab report"
+            title={t('Add a lab report')}
             icon="add-outline"
             variant="secondary"
             onPress={() => router.push({ pathname: '/record/edit', params: { memberId, type: 'lab' } })}
@@ -91,17 +92,17 @@ export default function LabTrendsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
         <Card style={{ gap: 12 }}>
           <Text style={styles.subtitle}>
-            Latest report <Text style={{ fontWeight: '600', color: colors.text }}>{formatDate(summary.latestDate)}</Text> ·{' '}
-            {summary.reportCount} report{summary.reportCount === 1 ? '' : 's'} since {formatDate(summary.firstDate)}
+            {t('Latest report')}{' '}<Text style={{ fontWeight: '600', color: colors.text }}>{formatDate(summary.latestDate)}</Text> ·{' '}
+            {tn(summary.reportCount, '{n} report since {date}', '{n} reports since {date}').replace('{date}', formatDate(summary.firstDate))}
           </Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Stat value={summary.testsTracked} label="tests tracked" color={colors.text} bg={colors.subtle} />
-            <Stat value={summary.outOfRange} label="out of range" color={labColors.outText} bg={colors.warnBg} />
-            <Stat value={summary.movedToward} label="moved toward range" color={colors.infoText} bg={colors.infoBg} />
+            <Stat value={summary.testsTracked} label={t('tests tracked')} color={colors.text} bg={colors.subtle} />
+            <Stat value={summary.outOfRange} label={t('out of range')} color={labColors.outText} bg={colors.warnBg} />
+            <Stat value={summary.movedToward} label={t('moved toward range')} color={colors.infoText} bg={colors.infoBg} />
           </View>
           {summary.reportCount > 1 ? (
             <Button
-              title="Compare two reports"
+              title={t('Compare two reports')}
               icon="swap-vertical-outline"
               variant="secondary"
               onPress={() => router.push({ pathname: '/labs/compare', params: { memberId } })}
@@ -109,13 +110,12 @@ export default function LabTrendsScreen() {
           ) : null}
         </Card>
 
-        <Section title="Out of range" color={labColors.outText} list={out} memberId={memberId} />
-        <Section title="Within range" list={inRange} memberId={memberId} />
-        <Section title="No range on report" list={noRange} memberId={memberId} />
+        <Section title={t('Out of range')} color={labColors.outText} list={out} memberId={memberId} />
+        <Section title={t('Within range')} list={inRange} memberId={memberId} />
+        <Section title={t('No range on report')} list={noRange} memberId={memberId} />
 
         <Text style={[styles.subtitle, { lineHeight: 18 }]}>
-          Changes compare each test with its previous result. Blue means it moved toward the report’s normal range, orange means it
-          moved away. Ranges come from each lab report; talk to your doctor about what results mean for you.
+          {t('Changes compare each test with its previous result. Blue means it moved toward the report’s normal range, orange means it moved away. Ranges come from each lab report; talk to your doctor about what results mean for you.')}
         </Text>
       </ScrollView>
     </>

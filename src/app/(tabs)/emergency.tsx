@@ -6,6 +6,7 @@ import { EmergencyCardView, emergencyHeader } from '@/components/EmergencyCard';
 import { Button, EmptyState } from '@/components/ui';
 import { listMembers } from '@/lib/db';
 import { useQuery } from '@/lib/useQuery';
+import { t } from '@/i18n';
 
 export default function EmergencyTab() {
   const db = useSQLiteContext();
@@ -22,8 +23,8 @@ export default function EmergencyTab() {
       {memberId ? (
         <EmergencyCardView memberId={memberId} onSelectMember={setSelected} />
       ) : (
-        <EmptyState icon="medical-outline" title="No family members yet" message="Add a family member to create their emergency card.">
-          <Button title="Add family member" icon="person-add-outline" onPress={() => router.push('/member/edit')} />
+        <EmptyState icon="medical-outline" title={t('No family members yet')} message={t('Add a family member to create their emergency card.')}>
+          <Button title={t('Add family member')} icon="person-add-outline" onPress={() => router.push('/member/edit')} />
         </EmptyState>
       )}
     </>

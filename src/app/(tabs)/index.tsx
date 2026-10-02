@@ -5,13 +5,15 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { RecordRow } from '@/components/RecordRow';
 import { Avatar, Button, Card, colors, EmptyState, Icon, SectionTitle, styles } from '@/components/ui';
+import { vaccineColors } from '@/components/VitalStatus';
 import { listMembers, listRecentRecords } from '@/lib/db';
 import { formatDate, todayIso } from '@/lib/format';
 import { daysOfSupply, dosesOn, formatTime, needsRefill, nextDose } from '@/lib/medSchedule';
 import { listDoseLogs, listMedications, type MedicationWithMember } from '@/lib/meds';
 import { useQuery } from '@/lib/useQuery';
-import { sortVaccinations, STATUS_STYLE, vaccineDetail, vaccineStatus } from '@/lib/vaccineAnalysis';
+import { sortVaccinations, vaccineDetail, vaccineStatus } from '@/lib/vaccineAnalysis';
 import { listVaccinations } from '@/lib/vaccines';
+import { t } from '@/i18n';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -42,10 +44,10 @@ export default function HomeScreen() {
       options={{
         headerRight: () => (
           <View style={{ flexDirection: 'row', gap: 18, marginRight: 16 }}>
-            <Pressable accessibilityLabel="Search records" hitSlop={8} onPress={() => router.push('/records')}>
+            <Pressable accessibilityLabel={t('Search records')} hitSlop={8} onPress={() => router.push('/records')}>
               <Icon name="search-outline" size={22} color={colors.primary} />
             </Pressable>
-            <Pressable accessibilityLabel="Settings" hitSlop={8} onPress={() => router.push('/settings')}>
+            <Pressable accessibilityLabel={t('Settings')} hitSlop={8} onPress={() => router.push('/settings')}>
               <Icon name="settings-outline" size={22} color={colors.primary} />
             </Pressable>
           </View>
@@ -62,10 +64,10 @@ export default function HomeScreen() {
         {header}
         <EmptyState
           icon="people-outline"
-          title="Start your family registry"
-          message="Add each family member, then keep their reports, medicines, vaccinations and vitals in one place.">
-          <Button title="Add family member" icon="person-add-outline" onPress={() => router.push('/member/edit')} />
-          <Button title="Import shared records" icon="cloud-download-outline" variant="secondary" onPress={() => router.push('/share')} />
+          title={t('Start your family registry')}
+          message={t('Add each family member, then keep their reports, medicines, vaccinations and vitals in one place.')}>
+          <Button title={t('Add family member')} icon="person-add-outline" onPress={() => router.push('/member/edit')} />
+          <Button title={t('Import shared records')} icon="cloud-download-outline" variant="secondary" onPress={() => router.push('/share')} />
         </EmptyState>
       </>
     );
@@ -80,7 +82,7 @@ export default function HomeScreen() {
       icon: 'alarm-outline',
       tint: colors.warnStrong,
       bg: colors.warnBg,
-      title: late.length === 1 ? `${first.memberName} · ${first.name} not marked taken` : `${late.length} doses not marked taken`,
+      title: late.length === 1 ? t('{name} · {med} not marked taken', { name: first.memberName, med: first.name }) : t('{n} doses not marked taken', { n: late.length }),
       detail: late.length === 1 ? `Due ${formatTime(late[0].time)}` : 'Tap to tick them off',
       onPress: () => router.push('/medicines'),
     });
@@ -91,7 +93,7 @@ export default function HomeScreen() {
       icon: 'medkit-outline',
       tint: colors.warnStrong,
       bg: colors.warnBg,
-      title: `${m.memberName} · refill ${m.name}`,
+      title: t('{name} · refill {med}', { name: m.memberName, med: m.name }),
       detail: `${m.stock} left, about ${daysOfSupply(m)} days`,
       onPress: () => router.push({ pathname: '/medicines/edit', params: { id: m.id } }),
     });
@@ -105,7 +107,7 @@ export default function HomeScreen() {
       bg: colors.infoBg,
       title: `${v.memberName} · ${v.name}${v.dose ? ` ${v.dose}` : ''}`,
       detail: vaccineDetail(v, today),
-      detailColor: STATUS_STYLE[status].color,
+      detailColor: vaccineColors(status).color,
       onPress: () => router.push({ pathname: '/vaccines/[memberId]', params: { memberId: v.memberId } }),
     });
   }
@@ -123,7 +125,7 @@ export default function HomeScreen() {
             <Pressable
               key={m.id}
               accessibilityRole="button"
-              accessibilityLabel={`Open ${m.name}`}
+              accessibilityLabel={t('Open {name}', { name: m.name })}
               onPress={() => router.push({ pathname: '/member/[id]', params: { id: m.id } })}
               style={{ alignItems: 'center', gap: 6, width: 64 }}>
               <Avatar name={m.name} color={m.color} size={52} />
@@ -134,18 +136,18 @@ export default function HomeScreen() {
           ))}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Add family member"
+            accessibilityLabel={t('Add family member')}
             onPress={() => router.push('/member/edit')}
             style={{ alignItems: 'center', gap: 6, width: 64 }}>
             <View
               style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.placeholder, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="add-outline" color={colors.muted} />
             </View>
-            <Text style={{ fontSize: 12, color: colors.muted }}>Add</Text>
+            <Text style={{ fontSize: 12, color: colors.muted }}>{t('Add')}</Text>
           </Pressable>
         </ScrollView>
 
-        <SectionTitle>Needs attention</SectionTitle>
+        <SectionTitle>{t('Needs attention')}</SectionTitle>
         {attention.length ? (
           <Card style={{ padding: 0, overflow: 'hidden' }}>
             {attention.map((a, i) => (
@@ -175,27 +177,27 @@ export default function HomeScreen() {
         ) : (
           <Card style={[styles.row, { gap: 10 }]}>
             <Icon name="checkmark-circle-outline" color={colors.okText} />
-            <Text style={[styles.body, { flex: 1 }]}>All caught up. Nothing due right now.</Text>
+            <Text style={[styles.body, { flex: 1 }]}>{t('All caught up. Nothing due right now.')}</Text>
           </Card>
         )}
 
         <MedicinesCard data={{ meds, doses, refills: [] }} />
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Button style={{ flex: 1 }} title="Add record" icon="document-text-outline" onPress={() => router.push('/record/edit')} />
-          <Button style={{ flex: 1 }} title="Log vitals" icon="pulse-outline" variant="secondary" onPress={() => router.push('/vitals/add')} />
+          <Button style={{ flex: 1 }} title={t('Add record')} icon="document-text-outline" onPress={() => router.push('/record/edit')} />
+          <Button style={{ flex: 1 }} title={t('Log vitals')} icon="pulse-outline" variant="secondary" onPress={() => router.push('/vitals/add')} />
         </View>
-        <Button title="Read a lab report PDF" icon="scan-outline" variant="secondary" onPress={() => router.push('/record/import')} />
+        <Button title={t('Read a lab report PDF')} icon="scan-outline" variant="secondary" onPress={() => router.push('/record/import')} />
 
         {recent.length > 0 ? (
           <>
             <SectionTitle
               action={
                 <Pressable hitSlop={8} onPress={() => router.push('/records')}>
-                  <Text style={{ color: colors.primary, fontWeight: '600' }}>See all</Text>
+                  <Text style={{ color: colors.primary, fontWeight: '600' }}>{t('See all')}</Text>
                 </Pressable>
               }>
-              Recent records
+              {t('Recent records')}
             </SectionTitle>
             {recent.map((r) => (
               <RecordRow key={r.id} record={r} showMember />
@@ -218,10 +220,10 @@ function MedicinesCard({ data }: { data?: { meds: MedicationWithMember[]; doses:
     <Card onPress={() => router.push('/medicines')} style={{ gap: 10 }}>
       <View style={styles.row}>
         <Icon name="medkit-outline" color="#DB2777" size={24} />
-        <Text style={[styles.title, { flex: 1 }]}>{meds.length ? 'Today’s medicines' : 'Medicines & reminders'}</Text>
+        <Text style={[styles.title, { flex: 1 }]}>{meds.length ? t('Today’s medicines') : t('Medicines & reminders')}</Text>
         {doses.length ? (
           <Text style={{ color: colors.primary, fontWeight: '600' }}>
-            {taken} of {doses.length} taken
+            {t('{taken} of {total} taken', { taken, total: doses.length })}
           </Text>
         ) : (
           <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
@@ -234,16 +236,16 @@ function MedicinesCard({ data }: { data?: { meds: MedicationWithMember[]; doses:
       ) : null}
       <Text style={styles.subtitle}>
         {!meds.length
-          ? 'Add the family’s medicines to get dose reminders and refill warnings.'
+          ? t('Add the family’s medicines to get dose reminders and refill warnings.')
           : nextMed
-            ? `Next: ${nextMed.memberName} · ${nextMed.name} at ${formatTime(next!.time)}`
+            ? t('Next: {name} · {med} at {time}', { name: nextMed.memberName, med: nextMed.name, time: formatTime(next!.time) })
             : doses.length
-              ? 'No more doses due today.'
-              : 'No doses due today.'}
+              ? t('No more doses due today.')
+              : t('No doses due today.')}
       </Text>
       {refills.length ? (
         <Text style={[styles.subtitle, { marginTop: 0, color: colors.warnStrong, fontWeight: '600' }]}>
-          Refill soon: {refills.map((m) => m.name).join(', ')}
+          {t('Refill soon: {med}', { med: refills.map((m) => m.name).join(', ') })}
         </Text>
       ) : null}
     </Card>

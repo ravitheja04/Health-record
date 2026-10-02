@@ -1,3 +1,5 @@
+import { t } from '../../i18n';
+
 /**
  * The few Google Drive v3 calls family sync needs.
  *
@@ -52,7 +54,7 @@ export class DriveClient {
   private async authed(url: string, init: RequestInit, what: string) {
     for (let attempt = 0; attempt < 2; attempt++) {
       const token = await this.opts.getToken();
-      if (!token) throw new DriveError(401, 'Sign in with Google to share this phone’s records.');
+      if (!token) throw new DriveError(401, t('Sign in with Google to share this phone’s records.'));
       const res = await this.fetchFn(url, { ...init, headers: { ...(init.headers ?? {}), Authorization: `Bearer ${token}` } });
       if (res.status === 401 && attempt === 0) {
         await this.opts.dropToken(token);
@@ -61,7 +63,7 @@ export class DriveClient {
       if (!res.ok) throw await failure(res, what);
       return res;
     }
-    throw new DriveError(401, 'Google sign-in expired. Sign in again.');
+    throw new DriveError(401, t('Google sign-in expired. Sign in again.'));
   }
 
   /** Finds a file this app made, tagged with `appProperties.fhr = tag`. */
