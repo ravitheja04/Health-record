@@ -6,8 +6,9 @@ import { Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { setAppLock } from '@/components/AppLock';
+import { setThemePref } from '@/components/theme';
 import { Card, colors, Icon, SectionTitle, styles } from '@/components/ui';
-import { getLockConfig, LOCK_DELAYS, saveLockConfig } from '@/lib/settings';
+import { getLockConfig, getThemePref, LOCK_DELAYS, saveLockConfig, saveThemePref, THEME_PREFS, type ThemePref } from '@/lib/settings';
 import { useQuery } from '@/lib/useQuery';
 
 export default function SettingsScreen() {
@@ -15,9 +16,17 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const load = useCallback(() => getLockConfig(db), [db]);
   const { data: lock, refresh } = useQuery(load);
+  const loadTheme = useCallback(() => getThemePref(db), [db]);
+  const { data: theme, refresh: refreshTheme } = useQuery(loadTheme);
   const [busy, setBusy] = useState(false);
 
-  if (!lock) return null;
+  if (!lock || !theme) return null;
+
+  async function chooseTheme(pref: ThemePref) {
+    await saveThemePref(db, pref);
+    setThemePref(pref);
+    refreshTheme();
+  }
 
   async function toggle(enabled: boolean) {
     if (!lock || busy) return;
@@ -72,6 +81,29 @@ export default function SettingsScreen() {
             </View>
           </View>
         ) : null}
+      </Card>
+
+      <SectionTitle>Appearance</SectionTitle>
+      <Card style={{ gap: 8 }}>
+        <View style={styles.row}>
+          <Icon name="contrast-outline" color={colors.primary} />
+          <Text style={[styles.title, { flex: 1 }]}>Theme</Text>
+        </View>
+        <View style={styles.chips}>
+          {THEME_PREFS.map((t) => {
+            const on = t.value === theme;
+            return (
+              <Pressable
+                key={t.value}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on }}
+                onPress={() => chooseTheme(t.value)}
+                style={[styles.chip, on && styles.chipSelected]}>
+                <Text style={[styles.chipText, on && styles.chipTextSelected]}>{t.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </Card>
 
       <SectionTitle>Data</SectionTitle>

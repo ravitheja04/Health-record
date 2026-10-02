@@ -91,7 +91,7 @@ export default function ScheduleScreen() {
                     height: 22,
                     borderRadius: 11,
                     borderWidth: 2,
-                    borderColor: selected ? colors.primary : '#CBD5E1',
+                    borderColor: selected ? colors.primary : colors.border,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
@@ -122,7 +122,7 @@ export default function ScheduleScreen() {
               <Card key={g.label} style={{ gap: 4 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <Text style={[styles.label, { color: colors.muted }]}>{g.label.toUpperCase()}</Text>
-                  <Text style={[styles.label, { color: g.items[0].dueDate < today ? '#9A3412' : colors.muted }]}>
+                  <Text style={[styles.label, { color: g.items[0].dueDate < today ? colors.warnText : colors.muted }]}>
                     {formatDate(g.items[0].dueDate)}
                   </Text>
                 </View>

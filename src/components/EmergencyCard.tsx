@@ -31,17 +31,17 @@ function CallButton({ phone, label }: { phone: string; label: string }) {
       accessibilityLabel={`Call ${label}`}
       onPress={() => call(phone)}
       style={({ pressed }) => [
-        { width: 48, height: 48, borderRadius: 24, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' },
+        { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.okBg, alignItems: 'center', justifyContent: 'center' },
         pressed && styles.pressed,
       ]}>
-      <Icon name="call" color="#047857" size={22} />
+      <Icon name="call" color={colors.okText} size={22} />
     </Pressable>
   );
 }
 
 function Block({ title, children, tone }: { title: string; children: ReactNode; tone?: 'alert' }) {
   return (
-    <Card style={tone === 'alert' ? { borderColor: '#FECACA', borderWidth: 1 } : undefined}>
+    <Card style={tone === 'alert' ? { borderColor: colors.dangerBorder, borderWidth: 1 } : undefined}>
       <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 0.6, color: tone === 'alert' ? RED : colors.muted, marginBottom: 6 }}>
         {title.toUpperCase()}
       </Text>
@@ -173,7 +173,7 @@ export function EmergencyCardView({ memberId, onSelectMember }: { memberId: stri
               contacts.map((c, i) => (
                 <View
                   key={`${c.name}-${i}`}
-                  style={[styles.row, { paddingVertical: 6, borderTopWidth: i ? 1 : 0, borderTopColor: '#F1F5F9' }]}>
+                  style={[styles.row, { paddingVertical: 6, borderTopWidth: i ? 1 : 0, borderTopColor: colors.subtle }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.title}>
                       {c.name}
@@ -238,7 +238,7 @@ export function EmergencyCardView({ memberId, onSelectMember }: { memberId: stri
             />
           </View>
 
-          <Card style={{ backgroundColor: '#F8FAFC' }}>
+          <Card style={{ backgroundColor: colors.subtle }}>
             <Text style={styles.title}>Show it on the lock screen</Text>
             <Text style={[styles.subtitle, { lineHeight: 19 }]}>
               Phones can show medical details to responders without unlocking. On Android open Settings and search for “Medical

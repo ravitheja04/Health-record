@@ -3,7 +3,9 @@ import { View } from 'react-native';
 import Svg, { Circle, Line, Path, Polyline, Text as SvgText } from 'react-native-svg';
 
 import { formatValue } from '@/lib/labAnalysis';
-import type { GrowthPoint, referenceCurves } from '@/lib/growth';
+import { ageTicks, type GrowthPoint, type referenceCurves } from '@/lib/growth';
+
+import { colors } from './ui';
 
 type Curves = ReturnType<typeof referenceCurves>;
 
@@ -14,13 +16,6 @@ const LINE_STYLE: Record<number, { stroke: string; dash?: string; width: number 
   3: { stroke: '#EF4444', dash: '2 4', width: 1 },
   [-3]: { stroke: '#EF4444', dash: '2 4', width: 1 },
 };
-
-function ageTick(days: number, span: number) {
-  if (span <= 120) return `${Math.round(days / 7)}w`;
-  if (span <= 800) return `${Math.round(days / 30.4375)}m`;
-  const years = days / 365.25;
-  return Number.isInteger(Math.round(years * 2) / 2) ? `${Math.round(years)}y` : `${(Math.round(years * 2) / 2).toFixed(1)}y`;
-}
 
 /**
  * A child's measurements over age on top of the WHO reference lines: the
@@ -66,7 +61,7 @@ export function GrowthChart({
   const x = (d: number) => (maxDays === minDays ? left + plotW / 2 : left + ((d - minDays) / (maxDays - minDays)) * plotW);
   const y = (v: number) => top + (1 - (v - yMin) / (yMax - yMin)) * plotH;
   const yTicks = [0, 1, 2, 3, 4].map((i) => yMin + ((yMax - yMin) * i) / 4);
-  const xTicks = [0, 1, 2, 3, 4].map((i) => minDays + ((maxDays - minDays) * i) / 4);
+  const xTicks = ageTicks(minDays, maxDays);
 
   const band = curves
     ? (() => {
@@ -85,9 +80,9 @@ export function GrowthChart({
     <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ height }} accessible accessibilityLabel={description}>
       {width > 0 ? (
         <Svg width={width} height={height}>
-          {band ? <Path d={band} fill="#DCFCE7" opacity={0.6} /> : null}
+          {band ? <Path d={band} fill={colors.okBg} opacity={0.6} /> : null}
           {yTicks.map((t) => (
-            <Line key={`g${t}`} x1={left} x2={left + plotW} y1={y(t)} y2={y(t)} stroke="#E2E8F0" strokeWidth={1} />
+            <Line key={`g${t}`} x1={left} x2={left + plotW} y1={y(t)} y2={y(t)} stroke={colors.border} strokeWidth={1} />
           ))}
           {curves?.map((c) => {
             const s = LINE_STYLE[c.z];
@@ -103,20 +98,20 @@ export function GrowthChart({
             );
           })}
           {yTicks.map((t) => (
-            <SvgText key={`t${t}`} x={left - 6} y={y(t) + 4} fontSize={11} fill="#64748B" textAnchor="end">
+            <SvgText key={`t${t}`} x={left - 6} y={y(t) + 4} fontSize={11} fill={colors.muted} textAnchor="end">
               {formatValue(Math.round(t * 10) / 10)}
             </SvgText>
           ))}
-          {xTicks.map((d) => (
-            <SvgText key={`x${d}`} x={x(d)} y={height - 8} fontSize={11} fill="#64748B" textAnchor="middle">
-              {ageTick(d, maxDays - minDays)}
+          {xTicks.map((t) => (
+            <SvgText key={`x${t.days}`} x={x(t.days)} y={height - 8} fontSize={11} fill={colors.muted} textAnchor="middle">
+              {t.label}
             </SvgText>
           ))}
           {points.length > 1 ? (
             <Polyline points={points.map((p) => `${x(p.days)},${y(p.value)}`).join(' ')} fill="none" stroke={color} strokeWidth={2.5} />
           ) : null}
           {points.map((p) => (
-            <Circle key={p.measuredAt} cx={x(p.days)} cy={y(p.value)} r={4} fill="#FFFFFF" stroke={color} strokeWidth={2.5} />
+            <Circle key={p.measuredAt} cx={x(p.days)} cy={y(p.value)} r={4} fill={colors.card} stroke={color} strokeWidth={2.5} />
           ))}
         </Svg>
       ) : null}

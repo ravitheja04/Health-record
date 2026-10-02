@@ -60,7 +60,7 @@ function DoseRow({ dose, onSet, last }: { dose: Dose; onSet: (status: DoseStatus
           paddingHorizontal: 14,
           paddingVertical: 10,
           borderBottomWidth: last ? 0 : 1,
-          borderBottomColor: '#F1F5F9',
+          borderBottomColor: colors.subtle,
         },
         pressed && styles.pressed,
       ]}>
@@ -72,7 +72,7 @@ function DoseRow({ dose, onSet, last }: { dose: Dose; onSet: (status: DoseStatus
           {med.name}
           {med.dose ? ` ${med.dose}` : ''}
         </Text>
-        <Text style={[styles.subtitle, { marginTop: 0 }, late && { color: '#C2410C', fontWeight: '600' }]} numberOfLines={1}>
+        <Text style={[styles.subtitle, { marginTop: 0 }, late && { color: colors.warnStrong, fontWeight: '600' }]} numberOfLines={1}>
           {skipped ? `Skipped · ${detail}` : late ? `Due ${detail}` : detail}
         </Text>
       </View>
@@ -88,11 +88,11 @@ function DoseRow({ dose, onSet, last }: { dose: Dose; onSet: (status: DoseStatus
           borderRadius: 22,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: taken ? '#DCFCE7' : colors.card,
+          backgroundColor: taken ? colors.okBg : colors.card,
           borderWidth: taken ? 0 : 2,
-          borderColor: late ? '#FDBA74' : '#CBD5E1',
+          borderColor: late ? colors.warnBorder : colors.border,
         }}>
-        {taken ? <Icon name="checkmark" size={22} color="#047857" /> : null}
+        {taken ? <Icon name="checkmark" size={22} color={colors.okText} /> : null}
       </Pressable>
     </Pressable>
   );
@@ -189,9 +189,9 @@ export default function MedicinesScreen() {
             ) : null}
 
             {remindersWanted && !data.permission ? (
-              <Card style={{ backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }}>
-                <Text style={[styles.title, { color: '#9A3412' }]}>Reminders are turned off</Text>
-                <Text style={[styles.subtitle, { color: '#9A3412' }]}>Allow notifications so this phone can remind you at each dose time.</Text>
+              <Card style={{ backgroundColor: colors.warnBg, borderColor: colors.warnBorder }}>
+                <Text style={[styles.title, { color: colors.warnText }]}>Reminders are turned off</Text>
+                <Text style={[styles.subtitle, { color: colors.warnText }]}>Allow notifications so this phone can remind you at each dose time.</Text>
                 <Button
                   title="Allow notifications"
                   icon="notifications-outline"
@@ -207,11 +207,11 @@ export default function MedicinesScreen() {
             ) : null}
 
             {refills.map((m) => (
-              <Card key={`refill-${m.id}`} style={{ backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }}>
+              <Card key={`refill-${m.id}`} style={{ backgroundColor: colors.warnBg, borderColor: colors.warnBorder }}>
                 <View style={styles.row}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.title, { color: '#9A3412', fontSize: 15 }]}>Refill soon: {m.name}</Text>
-                    <Text style={[styles.subtitle, { color: '#9A3412' }]}>
+                    <Text style={[styles.title, { color: colors.warnText, fontSize: 15 }]}>Refill soon: {m.name}</Text>
+                    <Text style={[styles.subtitle, { color: colors.warnText }]}>
                       {m.memberName} · {m.stock} left, about {daysOfSupply(m)} day{daysOfSupply(m) === 1 ? '' : 's'}
                     </Text>
                   </View>
@@ -280,7 +280,7 @@ function AllMedicines({ meds, today }: { meds: MedicationWithMember[]; today: st
         key={m.id}
         onPress={() => router.push({ pathname: '/medicines/edit', params: { id: m.id } })}
         style={({ pressed }) => [
-          { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: i === list.length - 1 ? 0 : 1, borderBottomColor: '#F1F5F9' },
+          { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: i === list.length - 1 ? 0 : 1, borderBottomColor: colors.subtle },
           pressed && styles.pressed,
         ]}>
         <Avatar name={m.memberName} color={m.memberColor} size={32} />

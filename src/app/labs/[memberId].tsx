@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { labColors } from '@/components/LabChart';
 import { TestRow } from '@/components/LabRows';
-import { Button, Card, EmptyState, SectionTitle, styles } from '@/components/ui';
+import { Button, Card, colors, EmptyState, SectionTitle, styles } from '@/components/ui';
 import { getMember } from '@/lib/db';
 import { formatDate } from '@/lib/format';
 import { buildSeries, summarize, type TestSeries } from '@/lib/labAnalysis';
@@ -91,13 +91,13 @@ export default function LabTrendsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
         <Card style={{ gap: 12 }}>
           <Text style={styles.subtitle}>
-            Latest report <Text style={{ fontWeight: '600', color: '#0F172A' }}>{formatDate(summary.latestDate)}</Text> ·{' '}
+            Latest report <Text style={{ fontWeight: '600', color: colors.text }}>{formatDate(summary.latestDate)}</Text> ·{' '}
             {summary.reportCount} report{summary.reportCount === 1 ? '' : 's'} since {formatDate(summary.firstDate)}
           </Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Stat value={summary.testsTracked} label="tests tracked" color="#0F172A" bg="#F8FAFC" />
-            <Stat value={summary.outOfRange} label="out of range" color={labColors.outText} bg="#FFF7ED" />
-            <Stat value={summary.movedToward} label="moved toward range" color="#1E40AF" bg="#EFF6FF" />
+            <Stat value={summary.testsTracked} label="tests tracked" color={colors.text} bg={colors.subtle} />
+            <Stat value={summary.outOfRange} label="out of range" color={labColors.outText} bg={colors.warnBg} />
+            <Stat value={summary.movedToward} label="moved toward range" color={colors.infoText} bg={colors.infoBg} />
           </View>
           {summary.reportCount > 1 ? (
             <Button

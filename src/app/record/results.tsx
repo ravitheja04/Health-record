@@ -208,8 +208,8 @@ export default function ResultsScreen() {
           {record.title} · {formatDate(record.date)}
         </Text>
         {imported ? (
-          <Card style={{ gap: 4, borderColor: '#93C5FD', backgroundColor: '#EFF6FF' }}>
-            <Text style={[styles.title, { color: '#1E40AF' }]}>
+          <Card style={{ gap: 4, borderColor: colors.infoBorder, backgroundColor: colors.infoBg }}>
+            <Text style={[styles.title, { color: colors.infoText }]}>
               Filled {imported.count} value{imported.count === 1 ? '' : 's'} from the {imported.labName || 'lab'} report
             </Text>
             <Text style={[styles.subtitle, { lineHeight: 19 }]}>Check each one against the PDF, fix anything that’s off, then tap Save.</Text>
@@ -234,7 +234,7 @@ export default function ResultsScreen() {
             <View style={[styles.row, { gap: 8 }]}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.title}>{r.testName}</Text>
-                {notes.get(r.testKey) ? <Text style={[styles.hint, { color: '#9A3412' }]}>{notes.get(r.testKey)}</Text> : null}
+                {notes.get(r.testKey) ? <Text style={[styles.hint, { color: colors.warnText }]}>{notes.get(r.testKey)}</Text> : null}
               </View>
               <Pressable
                 accessibilityLabel={`Remove ${r.testName}`}
@@ -251,7 +251,7 @@ export default function ResultsScreen() {
                   onChangeText={(v) => update(r.id, { value: v })}
                   keyboardType="decimal-pad"
                   placeholder="—"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={colors.placeholder}
                   accessibilityLabel={`${r.testName} value`}
                   style={[styles.input, { marginTop: 4, fontWeight: '700' }]}
                 />
@@ -263,7 +263,7 @@ export default function ResultsScreen() {
                   onChangeText={(v) => update(r.id, { unit: v })}
                   autoCapitalize="none"
                   placeholder="unit"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={colors.placeholder}
                   accessibilityLabel={`${r.testName} unit`}
                   style={[styles.input, { marginTop: 4 }]}
                 />
@@ -277,7 +277,7 @@ export default function ResultsScreen() {
                   onChangeText={(v) => update(r.id, { low: v })}
                   keyboardType="decimal-pad"
                   placeholder="low"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={colors.placeholder}
                   accessibilityLabel={`${r.testName} range low`}
                   style={[styles.input, { flex: 1 }]}
                 />
@@ -287,7 +287,7 @@ export default function ResultsScreen() {
                   onChangeText={(v) => update(r.id, { high: v })}
                   keyboardType="decimal-pad"
                   placeholder="high"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={colors.placeholder}
                   accessibilityLabel={`${r.testName} range high`}
                   style={[styles.input, { flex: 1 }]}
                 />
@@ -308,7 +308,7 @@ export default function ResultsScreen() {
           value={query}
           onChangeText={setQuery}
           placeholder="Search a test, e.g. HbA1c, TSH, vitamin D"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={colors.placeholder}
           returnKeyType="done"
           onSubmitEditing={() => (matches[0] ? addTest(matches[0]) : addCustom(query))}
           style={styles.input}

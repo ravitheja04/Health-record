@@ -101,14 +101,14 @@ export default function VitalDetailScreen() {
               })}
             </View>
           ) : null}
-          <View role="tablist" style={{ flexDirection: 'row', gap: 4, backgroundColor: '#F1F5F9', borderRadius: 10, padding: 3, marginTop: 6 }}>
+          <View role="tablist" style={{ flexDirection: 'row', gap: 4, backgroundColor: colors.subtle, borderRadius: 10, padding: 3, marginTop: 6 }}>
             {RANGES.map((r) => (
               <Pressable
                 key={r.key}
                 role="tab"
                 accessibilityState={{ selected: r.key === range }}
                 onPress={() => setRange(r.key)}
-                style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, backgroundColor: r.key === range ? '#FFFFFF' : 'transparent' }}>
+                style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, backgroundColor: r.key === range ? colors.card : 'transparent' }}>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: r.key === range ? colors.text : colors.muted }}>{r.label}</Text>
               </Pressable>
             ))}
@@ -153,7 +153,7 @@ export default function VitalDetailScreen() {
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: '/vitals/add', params: { id: r.id } })}
                 style={({ pressed }) => [
-                  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: '#F1F5F9' },
+                  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: colors.subtle },
                   pressed && styles.pressed,
                 ]}>
                 <View style={{ flex: 1 }}>

@@ -12,8 +12,8 @@ export function StatusChip({ status }: { status: LabStatus }) {
       style={{
         fontSize: 11,
         fontWeight: '700',
-        color: out ? labColors.outText : '#166534',
-        backgroundColor: out ? labColors.outSoft : '#DCFCE7',
+        color: out ? labColors.outText : colors.okText,
+        backgroundColor: out ? labColors.outSoft : colors.okBg,
         borderRadius: 6,
         paddingHorizontal: 6,
         paddingVertical: 1,
@@ -50,7 +50,7 @@ export function TestRow({ series, onPress, last }: { series: TestSeries; onPress
           paddingHorizontal: 14,
           paddingVertical: 11,
           borderBottomWidth: last ? 0 : 1,
-          borderBottomColor: '#F1F5F9',
+          borderBottomColor: colors.subtle,
         },
         pressed && styles.pressed,
       ]}>

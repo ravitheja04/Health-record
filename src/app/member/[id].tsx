@@ -125,7 +125,7 @@ export default function MemberScreen() {
         </Card>
 
         {member.allergies.trim() ? (
-          <Card style={{ backgroundColor: colors.dangerSoft, borderColor: '#FECACA' }}>
+          <Card style={{ backgroundColor: colors.dangerSoft, borderColor: colors.dangerBorder }}>
             <View style={[styles.row, { alignItems: 'flex-start' }]}>
               <Icon name="warning-outline" color={colors.danger} />
               <View style={{ flex: 1 }}>

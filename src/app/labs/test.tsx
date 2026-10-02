@@ -103,7 +103,7 @@ export default function LabTestScreen() {
                     paddingHorizontal: 14,
                     paddingVertical: 11,
                     borderBottomWidth: i === newestFirst.length - 1 ? 0 : 1,
-                    borderBottomColor: '#F1F5F9',
+                    borderBottomColor: colors.subtle,
                   },
                   pressed && styles.pressed,
                 ]}>

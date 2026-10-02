@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { ageDays, ageText, growthSeries, growthStatus, percentileText, referenceCurves, sexFor } from '../growth';
+import { ageDays, ageText, ageTicks, growthSeries, growthStatus, percentileText, referenceCurves, sexFor } from '../growth';
 import type { Vital, VitalType } from '../types';
 
 const v = (type: VitalType, measuredAt: string, value: number): Vital => ({
@@ -70,4 +70,11 @@ test('ages, sex and wording', () => {
   assert.equal(percentileText(11), '11th percentile');
   assert.equal(percentileText(3.2), '3rd percentile');
   assert.equal(percentileText(0.4), '<1 percentile');
+});
+
+test('chart age ticks sit on whole weeks, months or years', () => {
+  assert.deepEqual(ageTicks(0, 930).map((t) => t.label), ['0y', '6m', '1y', '18m', '2y', '30m']);
+  assert.deepEqual(ageTicks(0, 60).map((t) => t.label), ['0w', '2w', '4w', '6w', '8w']);
+  assert.deepEqual(ageTicks(0, 1856).map((t) => t.label), ['0y', '1y', '2y', '3y', '4y', '5y']);
+  for (const t of ageTicks(0, 400)) assert.equal(t.days % 30.4375 < 1e-9 || Math.abs((t.days % 30.4375) - 30.4375) < 1e-9, true);
 });

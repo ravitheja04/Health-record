@@ -112,15 +112,15 @@ export function AppLock() {
   if (!config.enabled || (!locked && !covered)) return null;
 
   return (
-    <View style={[StyleSheet.absoluteFill, styles.cover]} accessibilityViewIsModal>
-      <View style={styles.badge}>
+    <View style={[StyleSheet.absoluteFill, styles.cover, { backgroundColor: colors.bg }]} accessibilityViewIsModal>
+      <View style={[styles.badge, { backgroundColor: colors.primary }]}>
         <Icon name="lock-closed" size={36} color="#FFFFFF" />
       </View>
-      <Text style={styles.title}>Family Health Registry</Text>
+      <Text style={[styles.title, { color: colors.text }]}>Family Health Registry</Text>
       {locked ? (
         <>
-          <Text style={styles.subtitle}>Locked to keep your family’s health records private.</Text>
-          {message ? <Text style={styles.message}>{message}</Text> : null}
+          <Text style={[styles.subtitle, { color: colors.muted }]}>Locked to keep your family’s health records private.</Text>
+          {message ? <Text style={[styles.message, { color: colors.danger }]}>{message}</Text> : null}
           <Button title="Unlock" icon="finger-print" onPress={unlock} style={{ alignSelf: 'stretch', marginTop: 24 }} />
         </>
       ) : null}
@@ -139,9 +139,9 @@ export async function setAppLock(db: Parameters<typeof saveLockConfig>[0], enabl
   return null;
 }
 
+// Colours are applied inline so they follow the light/dark theme.
 const styles = StyleSheet.create({
   cover: {
-    backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
@@ -152,12 +152,11 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
-  title: { fontSize: 20, fontWeight: '700', color: colors.text },
-  subtitle: { fontSize: 15, color: colors.muted, textAlign: 'center', marginTop: 6 },
-  message: { fontSize: 14, color: colors.danger, textAlign: 'center', marginTop: 12 },
+  title: { fontSize: 20, fontWeight: '700' },
+  subtitle: { fontSize: 15, textAlign: 'center', marginTop: 6 },
+  message: { fontSize: 14, textAlign: 'center', marginTop: 12 },
 });

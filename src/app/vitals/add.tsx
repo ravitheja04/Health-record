@@ -116,7 +116,7 @@ export default function AddVitalScreen() {
         keyboardType="decimal-pad"
         autoFocus={autoFocus}
         placeholder="—"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={colors.placeholder}
         accessibilityLabel={label}
         style={[styles.input, { marginTop: 4, fontSize: 22, fontWeight: '700', textAlign: 'center' }]}
       />
@@ -172,7 +172,7 @@ export default function AddVitalScreen() {
             renderLabel={(c) => SUGAR_CONTEXTS.find((x) => x.key === c)?.label ?? c}
           />
         ) : null}
-        <Text style={[styles.hint, preview === 'above' || preview === 'below' ? { color: '#9A3412', fontWeight: '600' } : null]}>
+        <Text style={[styles.hint, preview === 'above' || preview === 'below' ? { color: colors.warnText, fontWeight: '600' } : null]}>
           {preview === 'above'
             ? 'Above the typical range. '
             : preview === 'below'

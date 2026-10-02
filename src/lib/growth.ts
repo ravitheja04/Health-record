@@ -119,3 +119,27 @@ export function percentileText(p: number) {
   const suffix = last >= 11 && last <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][Number(n) % 10] ?? 'th';
   return `${n}${suffix} percentile`;
 }
+
+const WEEK = 7;
+const MONTH = 30.4375;
+const YEAR = 365.25;
+
+/** Ticks at whole weeks, months or years (at most ~6), labelled exactly where they sit. */
+export function ageTicks(minDays: number, maxDays: number) {
+  const span = Math.max(1, maxDays - minDays);
+  const options: [number, (d: number) => string][] = [
+    [WEEK, (d) => `${Math.round(d / WEEK)}w`],
+    [2 * WEEK, (d) => `${Math.round(d / WEEK)}w`],
+    [MONTH, (d) => `${Math.round(d / MONTH)}m`],
+    [2 * MONTH, (d) => `${Math.round(d / MONTH)}m`],
+    [3 * MONTH, (d) => `${Math.round(d / MONTH)}m`],
+    [6 * MONTH, (d) => (Math.round(d / MONTH) % 12 === 0 ? `${Math.round(d / YEAR)}y` : `${Math.round(d / MONTH)}m`)],
+    [YEAR, (d) => `${Math.round(d / YEAR)}y`],
+    [2 * YEAR, (d) => `${Math.round(d / YEAR)}y`],
+    [5 * YEAR, (d) => `${Math.round(d / YEAR)}y`],
+  ];
+  const [step, label] = options.find(([st]) => span / st <= 6) ?? options[options.length - 1];
+  const ticks: { days: number; label: string }[] = [];
+  for (let d = Math.ceil(minDays / step) * step; d <= maxDays + 0.5; d += step) ticks.push({ days: d, label: label(d) });
+  return ticks;
+}

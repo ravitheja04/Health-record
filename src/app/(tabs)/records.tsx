@@ -89,7 +89,7 @@ export default function RecordsTab() {
               <TextInput
                 style={{ flex: 1, fontSize: 15, paddingVertical: 8, color: colors.text }}
                 placeholder="Search title, doctor, hospital, notes"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={colors.placeholder}
                 value={query}
                 onChangeText={setQuery}
                 clearButtonMode="while-editing"

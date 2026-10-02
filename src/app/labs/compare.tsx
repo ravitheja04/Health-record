@@ -109,22 +109,22 @@ export default function CompareScreen() {
         ) : null}
 
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1, backgroundColor: '#EFF6FF', borderRadius: 12, padding: 10 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#1E40AF' }}>{toward}</Text>
-            <Text style={{ fontSize: 12, color: '#1E40AF' }}>toward range</Text>
+          <View style={{ flex: 1, backgroundColor: colors.infoBg, borderRadius: 12, padding: 10 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.infoText }}>{toward}</Text>
+            <Text style={{ fontSize: 12, color: colors.infoText }}>toward range</Text>
           </View>
-          <View style={{ flex: 1, backgroundColor: '#FFF7ED', borderRadius: 12, padding: 10 }}>
+          <View style={{ flex: 1, backgroundColor: colors.warnBg, borderRadius: 12, padding: 10 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: labColors.outText }}>{away}</Text>
             <Text style={{ fontSize: 12, color: labColors.outText }}>away from range</Text>
           </View>
-          <View style={{ flex: 1, backgroundColor: '#F1F5F9', borderRadius: 12, padding: 10 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#334155' }}>{same}</Text>
-            <Text style={{ fontSize: 12, color: '#334155' }}>steady</Text>
+          <View style={{ flex: 1, backgroundColor: colors.subtle, borderRadius: 12, padding: 10 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.label }}>{same}</Text>
+            <Text style={{ fontSize: 12, color: colors.label }}>steady</Text>
           </View>
         </View>
 
         <Card style={{ padding: 0, overflow: 'hidden' }}>
-          <View style={{ flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F8FAFC', gap: 6 }}>
+          <View style={{ flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.subtle, gap: 6 }}>
             <Text style={{ flex: 1, fontSize: 11, fontWeight: '700', color: colors.muted }}>TEST</Text>
             <Text style={{ width: COL, textAlign: 'right', fontSize: 11, fontWeight: '700', color: colors.muted }}>
               {shortLabel(beforeReport.date).toUpperCase()}

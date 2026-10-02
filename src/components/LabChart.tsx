@@ -4,17 +4,40 @@ import Svg, { Circle, Line, Polyline, Rect, Text as SvgText } from 'react-native
 
 import { dateToMs, formatValue, statusOf } from '@/lib/labAnalysis';
 
+import { colors } from './ui';
+
+/** Chart and status colours; getters so they follow the light/dark theme. */
 export const labColors = {
-  out: '#C2410C',
-  outSoft: '#FFEDD5',
-  outText: '#9A3412',
-  toward: '#1D4ED8',
-  towardSoft: '#DBEAFE',
-  line: '#2563EB',
-  neutral: '#475569',
-  band: '#DCFCE7',
-  bandText: '#166534',
-  grid: '#E2E8F0',
+  get out() {
+    return colors.warnStrong;
+  },
+  get outSoft() {
+    return colors.warnBg;
+  },
+  get outText() {
+    return colors.warnText;
+  },
+  get toward() {
+    return colors.infoText;
+  },
+  get towardSoft() {
+    return colors.infoBg;
+  },
+  get line() {
+    return colors.primary;
+  },
+  get neutral() {
+    return colors.muted;
+  },
+  get band() {
+    return colors.okBg;
+  },
+  get bandText() {
+    return colors.okText;
+  },
+  get grid() {
+    return colors.border;
+  },
 };
 
 /** A tiny trend line for list rows. */
@@ -140,10 +163,10 @@ export function TimeChart({
             <Line key={`g${t}`} x1={left} x2={left + plotW} y1={y(t)} y2={y(t)} stroke={labColors.grid} strokeWidth={1} />
           ))}
           {refLines.map((r) => (
-            <Line key={`r${r}`} x1={left} x2={left + plotW} y1={y(r)} y2={y(r)} stroke="#94A3B8" strokeWidth={1} strokeDasharray="4 4" />
+            <Line key={`r${r}`} x1={left} x2={left + plotW} y1={y(r)} y2={y(r)} stroke={colors.placeholder} strokeWidth={1} strokeDasharray="4 4" />
           ))}
           {ticks.map((t) => (
-            <SvgText key={`t${t}`} x={left - 6} y={y(t) + 4} fontSize={11} fill="#64748B" textAnchor="end">
+            <SvgText key={`t${t}`} x={left - 6} y={y(t) + 4} fontSize={11} fill={colors.muted} textAnchor="end">
               {formatValue(t)}
             </SvgText>
           ))}
@@ -172,15 +195,15 @@ export function TimeChart({
             const c = out ? labColors.out : color;
             const last = i === points.length - 1;
             return (
-              <Circle key={`p${i}`} cx={x(p.t)} cy={y(p.value)} r={last ? 5.5 : 4} fill={last ? c : '#FFFFFF'} stroke={c} strokeWidth={2} />
+              <Circle key={`p${i}`} cx={x(p.t)} cy={y(p.value)} r={last ? 5.5 : 4} fill={last ? c : colors.card} stroke={c} strokeWidth={2} />
             );
           })}
           {second.map((p, i) => (
-            <Circle key={`q${i}`} cx={x(p.t)} cy={y(p.value2!)} r={3.5} fill="#FFFFFF" stroke={color2} strokeWidth={2} />
+            <Circle key={`q${i}`} cx={x(p.t)} cy={y(p.value2!)} r={3.5} fill={colors.card} stroke={color2} strokeWidth={2} />
           ))}
           {showValues
             ? points.map((p, i) => (
-                <SvgText key={`v${i}`} x={x(p.t)} y={y(p.value) - 10} fontSize={11} fontWeight="600" fill="#334155" textAnchor="middle">
+                <SvgText key={`v${i}`} x={x(p.t)} y={y(p.value) - 10} fontSize={11} fontWeight="600" fill={colors.label} textAnchor="middle">
                   {formatValue(p.value)}
                 </SvgText>
               ))
@@ -192,7 +215,7 @@ export function TimeChart({
                 x={x(p.t)}
                 y={height - 8}
                 fontSize={11}
-                fill="#64748B"
+                fill={colors.muted}
                 textAnchor={points.length === 1 ? 'middle' : i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}>
                 {xLabel(p.t)}
               </SvgText>

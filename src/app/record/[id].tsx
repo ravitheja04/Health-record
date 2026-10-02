@@ -153,7 +153,7 @@ export default function RecordScreen() {
                           paddingHorizontal: 14,
                           paddingVertical: 10,
                           borderBottomWidth: i === results.length - 1 ? 0 : 1,
-                          borderBottomColor: '#F1F5F9',
+                          borderBottomColor: colors.subtle,
                         },
                         pressed && styles.pressed,
                       ]}>

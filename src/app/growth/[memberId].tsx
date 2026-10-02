@@ -15,13 +15,13 @@ import { listVitals } from '@/lib/vitals';
 import { vitalDef } from '@/lib/vitalsAnalysis';
 import type { VitalType } from '@/lib/types';
 
-const COLORS: Record<GrowthKind, string> = { weight: '#0891B2', height: '#16A34A', head: '#CA8A04', bmi: '#7C3AED' };
+const COLORS: Record<GrowthKind, string> = { weight: '#0891B2', height: '#4F46E5', head: '#CA8A04', bmi: '#7C3AED' };
 
-const STATUS = {
-  usual: { text: 'In the usual range for age', color: '#15803D' },
-  below: { text: 'Below the usual range for age. Worth mentioning at the next check-up.', color: '#9A3412' },
-  above: { text: 'Above the usual range for age. Worth mentioning at the next check-up.', color: '#9A3412' },
-  none: { text: '', color: colors.muted },
+const STATUS_TEXT = {
+  usual: 'In the usual range for age',
+  below: 'Below the usual range for age. Worth mentioning at the next check-up.',
+  above: 'Above the usual range for age. Worth mentioning at the next check-up.',
+  none: '',
 };
 
 export default function GrowthScreen() {
@@ -54,7 +54,8 @@ export default function GrowthScreen() {
   const todayDays = ageDays(member.dob, new Date().toISOString());
   const inWhoAge = Math.min(todayDays, latest?.days ?? todayDays) <= WHO_MAX_DAYS;
   const curves = sex && inWhoAge ? referenceCurves(kind, sex, Math.max(todayDays, latest?.days ?? 0, 180)) : null;
-  const status = STATUS[growthStatus(latest?.z ?? null)];
+  const statusKey = growthStatus(latest?.z ?? null);
+  const status = { text: STATUS_TEXT[statusKey], color: statusKey === 'usual' ? colors.okText : colors.warnText };
   const logType: VitalType = kind === 'bmi' ? 'height' : kind;
   const add = (type: VitalType = logType) => router.push({ pathname: '/vitals/add', params: { memberId: member.id, type } });
   const kinds = GROWTH_KINDS.filter((k) => k.kind !== 'head' || todayDays <= WHO_MAX_DAYS);
@@ -72,14 +73,14 @@ export default function GrowthScreen() {
         }}
       />
       <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-        <View role="tablist" style={{ flexDirection: 'row', gap: 4, backgroundColor: '#F1F5F9', borderRadius: 10, padding: 3 }}>
+        <View role="tablist" style={{ flexDirection: 'row', gap: 4, backgroundColor: colors.subtle, borderRadius: 10, padding: 3 }}>
           {kinds.map((k) => (
             <Pressable
               key={k.kind}
               role="tab"
               accessibilityState={{ selected: k.kind === kind }}
               onPress={() => setKind(k.kind)}
-              style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, backgroundColor: k.kind === kind ? '#FFFFFF' : 'transparent' }}>
+              style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, backgroundColor: k.kind === kind ? colors.card : 'transparent' }}>
               <Text style={{ fontSize: 13, fontWeight: '600', color: k.kind === kind ? colors.text : colors.muted }}>{k.label}</Text>
             </Pressable>
           ))}
@@ -103,8 +104,8 @@ export default function GrowthScreen() {
                 {curves ? (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 }}>
                     <Text style={{ fontSize: 12, color: '#16A34A', fontWeight: '600' }}>— WHO median</Text>
-                    <Text style={{ fontSize: 12, color: '#B45309', fontWeight: '600' }}>- - usual range (±2 SD)</Text>
-                    <Text style={{ fontSize: 12, color: '#DC2626', fontWeight: '600' }}>··· ±3 SD</Text>
+                    <Text style={{ fontSize: 12, color: colors.cautionText, fontWeight: '600' }}>- - usual range (±2 SD)</Text>
+                    <Text style={{ fontSize: 12, color: colors.danger, fontWeight: '600' }}>··· ±3 SD</Text>
                   </View>
                 ) : null}
               </View>
@@ -132,7 +133,7 @@ export default function GrowthScreen() {
               {[...points].reverse().map((p, i) => (
                 <View
                   key={p.measuredAt}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: '#F1F5F9' }}>
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: colors.subtle }}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.body}>{ageText(p.days)}</Text>
                     <Text style={[styles.subtitle, { marginTop: 0, fontSize: 12 }]}>
@@ -140,7 +141,7 @@ export default function GrowthScreen() {
                       {p.percentile !== null ? ` · ${percentileText(p.percentile)}` : ''}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: growthStatus(p.z) === 'usual' || growthStatus(p.z) === 'none' ? colors.text : '#C2410C' }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: growthStatus(p.z) === 'usual' || growthStatus(p.z) === 'none' ? colors.text : colors.warnStrong }}>
                     {formatValue(p.value)} <Text style={{ fontSize: 12, fontWeight: '500', color: colors.muted }}>{def.unit}</Text>
                   </Text>
                 </View>

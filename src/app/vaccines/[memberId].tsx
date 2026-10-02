@@ -26,13 +26,13 @@ function ProgressRing({ given, total }: { given: number; total: number }) {
   const share = total ? given / total : 0;
   return (
     <Svg width={64} height={64} viewBox="0 0 64 64" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Circle cx={32} cy={32} r={r} fill="none" stroke="#E2E8F0" strokeWidth={8} />
+      <Circle cx={32} cy={32} r={r} fill="none" stroke={colors.border} strokeWidth={8} />
       <Circle
         cx={32}
         cy={32}
         r={r}
         fill="none"
-        stroke="#047857"
+        stroke={colors.okText}
         strokeWidth={8}
         strokeLinecap="round"
         strokeDasharray={`${c * share} ${c}`}
@@ -202,7 +202,7 @@ export default function VaccinesScreen() {
                         paddingHorizontal: 14,
                         paddingVertical: 11,
                         borderBottomWidth: i === items.length - 1 ? 0 : 1,
-                        borderBottomColor: '#F1F5F9',
+                        borderBottomColor: colors.subtle,
                       },
                       pressed && styles.pressed,
                     ]}>

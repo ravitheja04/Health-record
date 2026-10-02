@@ -254,7 +254,7 @@ export default function ImportReportScreen() {
               value={password}
               onChangeText={setPassword}
               placeholder="PDF password"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={colors.placeholder}
               autoCapitalize="none"
               autoCorrect={false}
               secureTextEntry
@@ -269,8 +269,8 @@ export default function ImportReportScreen() {
         {report ? (
           <>
             {!report.hasText || !report.rows.length ? (
-              <Card style={{ gap: 6, borderColor: '#FDBA74', backgroundColor: '#FFF7ED' }}>
-                <Text style={[styles.title, { color: '#9A3412' }]}>{report.hasText ? 'No test results found' : 'No text could be read'}</Text>
+              <Card style={{ gap: 6, borderColor: colors.warnBorder, backgroundColor: colors.warnBg }}>
+                <Text style={[styles.title, { color: colors.warnText }]}>{report.hasText ? 'No test results found' : 'No text could be read'}</Text>
                 <Text style={[styles.subtitle, { lineHeight: 19 }]}>
                   {report.source === 'ocr'
                     ? 'Try a sharper photo: flat page, good light, the results table filling the frame. Or save it and type the values.'
@@ -278,8 +278,8 @@ export default function ImportReportScreen() {
                 </Text>
               </Card>
             ) : report.source === 'ocr' ? (
-              <Card style={{ gap: 4, borderColor: '#FDE68A', backgroundColor: '#FFFBEB' }}>
-                <Text style={[styles.title, { color: '#92400E' }]}>Read from {photoMode ? 'a photo' : 'a scanned page'}</Text>
+              <Card style={{ gap: 4, borderColor: colors.cautionBorder, backgroundColor: colors.cautionBg }}>
+                <Text style={[styles.title, { color: colors.cautionText }]}>Read from {photoMode ? 'a photo' : 'a scanned page'}</Text>
                 <Text style={[styles.subtitle, { lineHeight: 19 }]}>
                   Photos are less exact than PDFs: a smudge can turn 6.8 into 5.8. Check every value against the paper before saving.
                 </Text>
@@ -307,7 +307,7 @@ export default function ImportReportScreen() {
                   renderLabel={(id) => members.find((m) => m.id === id)?.name.split(' ')[0] ?? ''}
                 />
                 {nameMismatch ? (
-                  <Text style={{ color: '#9A3412', fontWeight: '600' }}>
+                  <Text style={{ color: colors.warnText, fontWeight: '600' }}>
                     The report is for “{report.patientName}”. Check you picked the right person.
                   </Text>
                 ) : null}
@@ -322,7 +322,7 @@ export default function ImportReportScreen() {
                   {report.rows.map((r, i) => (
                     <View
                       key={r.testKey}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 9, borderTopWidth: i ? 1 : 0, borderTopColor: '#F1F5F9' }}>
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 9, borderTopWidth: i ? 1 : 0, borderTopColor: colors.subtle }}>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={styles.body} numberOfLines={1}>
                           {r.testName}

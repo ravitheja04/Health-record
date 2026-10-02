@@ -58,7 +58,7 @@ export function DateField({ label, value, onChange, hint, pickYearFirst, allowFu
           value={text}
           onChangeText={onType}
           placeholder="DD/MM/YYYY"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={colors.placeholder}
           keyboardType="number-pad"
           maxLength={10}
           accessibilityLabel={`${label}, day month year`}

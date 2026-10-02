@@ -23,6 +23,7 @@
     "expo-sharing": "~57.0.22",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
     "pdfjs-dist": "^6.3.289",
     "qrcode-generator": "^2.0.4",
     "react": "19.2.3",

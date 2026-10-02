@@ -43,3 +43,20 @@ export function onLockConfigChange(listener: Listener) {
     lockListeners.delete(listener);
   };
 }
+
+export type ThemePref = 'system' | 'light' | 'dark';
+
+export const THEME_PREFS: { value: ThemePref; label: string }[] = [
+  { value: 'system', label: 'Same as phone' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
+export async function getThemePref(db: SQLiteDatabase): Promise<ThemePref> {
+  const v = await getSetting(db, 'theme');
+  return v === 'light' || v === 'dark' ? v : 'system';
+}
+
+export async function saveThemePref(db: SQLiteDatabase, pref: ThemePref) {
+  await setSetting(db, 'theme', pref);
+}
