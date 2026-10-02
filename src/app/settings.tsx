@@ -10,6 +10,7 @@ import { setThemePref } from '@/components/theme';
 import { Card, colors, Icon, SectionTitle, styles } from '@/components/ui';
 import { getLockConfig, getThemePref, LOCK_DELAYS, saveLockConfig, saveThemePref, THEME_PREFS, type ThemePref } from '@/lib/settings';
 import { useQuery } from '@/lib/useQuery';
+import { refreshMedicinesWidget } from '@/widget/refresh';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
@@ -33,6 +34,7 @@ export default function SettingsScreen() {
     setBusy(true);
     const problem = await setAppLock(db, enabled, lock.after);
     setBusy(false);
+    refreshMedicinesWidget(db); // hides or shows medicine names on the home screen
     if (problem) Alert.alert('App lock', problem);
     refresh();
   }

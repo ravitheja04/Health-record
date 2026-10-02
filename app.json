@@ -52,6 +52,25 @@
         {
           "faceIDPermission": "Allow Family Health Registry to use Face ID to keep your family’s health records locked."
         }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "TodayMedicines",
+              "label": "Today’s medicines",
+              "description": "The family’s doses for today. Tap ✓ Taken to log a dose.",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "maxResizeHeight": "400dp",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
       ]
     ]
   }

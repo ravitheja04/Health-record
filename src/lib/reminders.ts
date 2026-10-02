@@ -6,6 +6,7 @@ import { todayIso } from './format';
 import { addDays, daysOfSupply, isCurrent, isDueOn, needsRefill } from './medSchedule';
 import { listMedications, type MedicationWithMember } from './meds';
 import { listVaccinations } from './vaccines';
+import { refreshMedicinesWidget } from '../widget/refresh';
 
 const CHANNEL_ID = 'medicine-reminders';
 const PREFIXES = ['med:', 'refill:', 'vac:'];
@@ -158,6 +159,11 @@ async function scheduleVaccineReminders(db: SQLiteDatabase, today: string, now: 
 }
 
 /** Fire-and-forget version for screens: reminders must never block saving data. */
+/**
+ * Brings everything that mirrors medicines and vaccinations up to date after a
+ * change: phone reminders and the Android home-screen widget. Errors are ignored.
+ */
 export function syncRemindersQuietly(db: SQLiteDatabase) {
   syncReminders(db).catch(() => {});
+  refreshMedicinesWidget(db);
 }
