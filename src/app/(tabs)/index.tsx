@@ -185,6 +185,7 @@ export default function HomeScreen() {
           <Button style={{ flex: 1 }} title="Add record" icon="document-text-outline" onPress={() => router.push('/record/edit')} />
           <Button style={{ flex: 1 }} title="Log vitals" icon="pulse-outline" variant="secondary" onPress={() => router.push('/vitals/add')} />
         </View>
+        <Button title="Read a lab report PDF" icon="scan-outline" variant="secondary" onPress={() => router.push('/record/import')} />
 
         {recent.length > 0 ? (
           <>

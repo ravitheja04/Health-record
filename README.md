@@ -10,6 +10,8 @@ Built with [Expo](https://expo.dev) (SDK 57, React Native, TypeScript, Expo Rout
 - **Medical records**: lab reports, prescriptions, doctor visits, vaccinations, scans/imaging, surgeries/procedures, insurance and other documents. Each record has a date, doctor, hospital/lab and notes/results.
 - **Attachments**: photograph a report with the camera, pick photos, or attach PDFs and images from Files/Drive/iCloud. Files are copied into the app's private storage.
 - **Lab trends**: type in the values from each lab report (about 30 common tests, grouped into panels like Diabetes, Lipid profile, Thyroid; or any custom test). Each person gets a trends view showing which tests are out of the report's range, a chart per test over time with the normal range shaded, how often it is tested, and a side-by-side comparison of any two reports. Changes are marked as moving toward or away from the report's range; the app never diagnoses.
+- **Read lab report PDFs**: pick a report PDF downloaded from Apollo 24|7 / Apollo Diagnostics, Tata 1mg Labs or most other Indian labs (or received on WhatsApp/email) and the app fills in the test names, values, units and normal ranges, works out the lab, patient, collection date and referring doctor, suggests the family member, and saves it as a lab record with the PDF attached. Everything is read on the phone (no internet, no AI service); password-protected PDFs are supported. Every value is shown for checking before it's saved, with notes on anything unusual (printed as "<0.01", marked high/low, no range found, test not in the common list).
+- **Photos and scanned reports**: photograph a paper report (one photo per page, or pick photos from the gallery) or pick a scanned PDF, and the same reader fills in the values using Google ML Kit text recognition on the phone (offline). Tilted photos are straightened, and digits OCR commonly confuses ("l3.2", "1O.5", "6,4") are fixed. Photos are less exact than PDFs, so the app says so and asks for every value to be checked.
 - **Medicines & reminders**: each person's medicines with dose, food instructions, times of day, every day or chosen weekdays, and start/end dates for courses. A "Today" checklist for the whole family (tick when taken, or mark skipped), phone notifications at each dose time, and tablets-left tracking with a refill warning when about 5 days remain. Reminders are per phone: shared medicines arrive with reminders off.
 - **Vaccination tracker**: per person, doses given and due, grouped as overdue / due in 30 days / upcoming / given. For children, add the whole Indian government (NIS) or IAP schedule in one tap with due dates worked out from the date of birth (typical ages, editable), and mark past doses as given in bulk. Reminders a week before and on the due date, and a linked record for each certificate photo or PDF. Adults can add flu, COVID-19, Tdap, hepatitis B and other vaccines.
 - **Home dashboard and tabs**: a bottom tab bar (Home, Records, Medicines, Vitals, Emergency). Home shows the family, what needs attention today (late doses, refills, overdue vaccines), today's medicines and recent records.
@@ -80,7 +82,21 @@ src/
     files.ts            Attachment storage and native share sheet
     share.ts            Family data file export/import and PDF generation
     types.ts            Data model and record categories
+    extract/            Lab report PDF reader (see below)
 ```
+
+## How lab report PDFs are read
+
+Lab PDFs from Apollo, Tata 1mg and other NABL labs are text PDFs laid out as a table: *Test Name · Result · Unit · Bio. Ref. Range/Interval · Method*, with a patient block above it. The extractor (`src/lib/extract/`) works in three steps:
+
+1. **Text with positions**: [pdf.js](https://mozilla.github.io/pdf.js/) runs in a hidden, offline WebView (`components/PdfReader.tsx`) and returns every piece of text with its x/y position. pdf.js is copied from npm into `src/lib/extract/pdfjsSource.generated.ts` by `npm install` (`scripts/vendor-pdfjs.js`).
+2. **Lines and columns** (`layout.ts`): text at the same height becomes a line; wide gaps split it into cells. The table header row ("Test Name", "Result", "Unit", "Bio. Ref. Range"…) tells which column each cell belongs to.
+3. **Rows** (`parseReport.ts`, `values.ts`, `profiles.ts`): values (with Indian digit grouping, `<`/`>`, H/L/High/Low flags), units, and reference ranges, including multi-line, gender-specific and multi-band ranges ("Desirable: <200 / Borderline: 200-239" picks the desirable band). Section headings, method lines, interpretation tables, notes, signatures and page furniture are skipped. Names are cleaned of specimen/method text (", SERUM", "(CLIA)") and matched to the app's test catalog so they join existing trends; anything else is kept under its printed name. `profiles.ts` holds the per-lab words (Apollo, Tata 1mg, generic).
+
+**Photos and scanned PDFs** go through OCR instead of step 1: scanned PDF pages are drawn to images by pdf.js, then [ML Kit text recognition](https://github.com/infinitered/react-native-mlkit) (`components/ReportOcr.ts`, native, so not in Expo Go) returns word boxes. `ocr.ts` measures the page tilt from the slope of the words on each recognised line, rotates the boxes straight, repairs look-alike characters inside numbers, and hands them to the same layout and row parsing.
+
+Tests in `src/lib/__tests__/extract.test.ts` build Apollo- and 1mg-style PDFs and read them back through pdf.js, and simulate tilted, typo-ridden photos of the same reports for the OCR path. To support another lab's layout, add a profile or a fixture that reproduces it.
+
 
 ## How family sharing works
 

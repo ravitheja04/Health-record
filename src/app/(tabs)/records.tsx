@@ -46,9 +46,17 @@ export default function RecordsTab() {
     <Tabs.Screen
       options={{
         headerRight: () => (
-          <Pressable accessibilityLabel="Add record" hitSlop={8} style={{ marginRight: 16 }} onPress={add}>
-            <Icon name="add-outline" size={26} color={colors.primary} />
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 18, marginRight: 16 }}>
+            <Pressable
+              accessibilityLabel="Read a lab report PDF"
+              hitSlop={8}
+              onPress={() => router.push({ pathname: '/record/import', params: member ? { memberId: member } : {} })}>
+              <Icon name="scan-outline" size={24} color={colors.primary} />
+            </Pressable>
+            <Pressable accessibilityLabel="Add record" hitSlop={8} onPress={add}>
+              <Icon name="add-outline" size={26} color={colors.primary} />
+            </Pressable>
+          </View>
         ),
       }}
     />
