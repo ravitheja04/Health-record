@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { labColors, Sparkline } from './LabChart';
 import { colors, styles } from './ui';
 import { formatDelta, formatRange, formatValue, type LabChange, type LabStatus, type TestSeries } from '@/lib/labAnalysis';
+import { t, tn } from '@/i18n';
 
 export function StatusChip({ status }: { status: LabStatus }) {
   if (status === 'unknown') return null;
@@ -12,14 +13,14 @@ export function StatusChip({ status }: { status: LabStatus }) {
       style={{
         fontSize: 11,
         fontWeight: '700',
-        color: out ? labColors.outText : '#166534',
-        backgroundColor: out ? labColors.outSoft : '#DCFCE7',
+        color: out ? labColors.outText : colors.okText,
+        backgroundColor: out ? labColors.outSoft : colors.okBg,
         borderRadius: 6,
         paddingHorizontal: 6,
         paddingVertical: 1,
         overflow: 'hidden',
       }}>
-      {status === 'high' ? 'High' : status === 'low' ? 'Low' : 'In range'}
+      {status === 'high' ? t('High') : status === 'low' ? t('Low') : t('In range')}
     </Text>
   );
 }
@@ -27,7 +28,7 @@ export function StatusChip({ status }: { status: LabStatus }) {
 /** "▼ 0.2" in blue when it moved toward the range, orange when away, grey otherwise. */
 export function ChangeText({ change, style }: { change: LabChange; style?: object }) {
   if (change.unitChanged) {
-    return <Text style={[{ fontSize: 12, color: colors.muted }, style]}>Unit changed</Text>;
+    return <Text style={[{ fontSize: 12, color: colors.muted }, style]}>{t('Unit changed')}</Text>;
   }
   if (change.delta === null) return null;
   const color = change.kind === 'toward' ? labColors.toward : change.kind === 'away' ? labColors.out : colors.muted;
@@ -41,7 +42,7 @@ export function TestRow({ series, onPress, last }: { series: TestSeries; onPress
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${series.testName}, latest ${formatValue(series.latest.value)} ${series.unit}`}
+      accessibilityLabel={`${series.testName}, ${t('latest {value}', { value: `${formatValue(series.latest.value)} ${series.unit}` })}`}
       style={({ pressed }) => [
         {
           flexDirection: 'row',
@@ -50,7 +51,7 @@ export function TestRow({ series, onPress, last }: { series: TestSeries; onPress
           paddingHorizontal: 14,
           paddingVertical: 11,
           borderBottomWidth: last ? 0 : 1,
-          borderBottomColor: '#F1F5F9',
+          borderBottomColor: colors.subtle,
         },
         pressed && styles.pressed,
       ]}>
@@ -62,7 +63,7 @@ export function TestRow({ series, onPress, last }: { series: TestSeries; onPress
           <StatusChip status={series.status} />
         </View>
         <Text style={[styles.subtitle, { fontSize: 12 }]} numberOfLines={1}>
-          {range ? `Range ${range}` : 'No range on report'} · {series.points.length} result{series.points.length === 1 ? '' : 's'}
+          {range ? t('Range {range}', { range }) : t('No range on report')} · {tn(series.points.length, '{n} result', '{n} results')}
         </Text>
       </View>
       <Sparkline values={series.points.map((p) => p.value)} color={out ? labColors.out : labColors.neutral} />

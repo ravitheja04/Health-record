@@ -1,16 +1,52 @@
 import type { DoseLog, DoseStatus, Medication } from './types';
+import { t } from '../i18n';
 
 /** Warn about a refill when this many days or fewer of medicine are left. */
 export const REFILL_DAYS = 5;
 
 export const WEEKDAYS = [
-  { day: 1, short: 'Mon' },
-  { day: 2, short: 'Tue' },
-  { day: 3, short: 'Wed' },
-  { day: 4, short: 'Thu' },
-  { day: 5, short: 'Fri' },
-  { day: 6, short: 'Sat' },
-  { day: 0, short: 'Sun' },
+  {
+    day: 1,
+    get short() {
+      return t('Mon');
+    },
+  },
+  {
+    day: 2,
+    get short() {
+      return t('Tue');
+    },
+  },
+  {
+    day: 3,
+    get short() {
+      return t('Wed');
+    },
+  },
+  {
+    day: 4,
+    get short() {
+      return t('Thu');
+    },
+  },
+  {
+    day: 5,
+    get short() {
+      return t('Fri');
+    },
+  },
+  {
+    day: 6,
+    get short() {
+      return t('Sat');
+    },
+  },
+  {
+    day: 0,
+    get short() {
+      return t('Sun');
+    },
+  },
 ];
 
 export const INSTRUCTIONS = ['Before food', 'After food', 'With food', 'Empty stomach', 'At bedtime'];
@@ -38,10 +74,18 @@ export function isDueOn(med: Medication, date: string) {
 export type DoseSlot = 'morning' | 'afternoon' | 'evening' | 'night';
 
 export const SLOT_LABELS: Record<DoseSlot, string> = {
-  morning: 'Morning',
-  afternoon: 'Afternoon',
-  evening: 'Evening',
-  night: 'Night',
+  get morning() {
+    return t('Morning');
+  },
+  get afternoon() {
+    return t('Afternoon');
+  },
+  get evening() {
+    return t('Evening');
+  },
+  get night() {
+    return t('Night');
+  },
 };
 
 export function slotOf(time: string): DoseSlot {

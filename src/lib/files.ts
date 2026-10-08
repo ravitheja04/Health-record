@@ -3,6 +3,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
 import type { Attachment } from './types';
+import { t } from '../i18n';
 
 /** A file the user picked that has not been saved into the registry yet. */
 export type PendingFile = {
@@ -74,7 +75,7 @@ export function removeAttachmentFiles(list: Pick<Attachment, 'fileName'>[]) {
 
 export async function shareFile(uri: string, mimeType: string, dialogTitle: string) {
   if (!(await Sharing.isAvailableAsync())) {
-    throw new Error('Sharing is not available on this device.');
+    throw new Error(t('Sharing is not available on this device.'));
   }
   await Sharing.shareAsync(uri, { mimeType, dialogTitle, UTI: utiFor(mimeType) });
 }

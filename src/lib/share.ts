@@ -6,10 +6,12 @@ import * as DB from './db';
 import * as Emergency from './emergency';
 import { cardContacts, emergencyText } from './emergencyText';
 import { qrSvgMarkup } from './qr';
-import { buildSeries, formatRange, formatValue, statusOf } from './labAnalysis';
+import { buildSeries, formatDelta, formatRange, formatValue, statusOf } from './labAnalysis';
 import * as Labs from './labs';
 import { isCurrent, scheduleText } from './medSchedule';
 import * as Meds from './meds';
+import type { PanelKey } from './labTests';
+import { aboutTest, buildSmartReport, cellStatus } from './smartReport';
 import { sortVaccinations, vaccineStatus } from './vaccineAnalysis';
 import * as Vax from './vaccines';
 import { checkVital, VITALS } from './vitalsAnalysis';
@@ -17,13 +19,15 @@ import * as Vitals from './vitals';
 import { readAttachmentBase64, shareFile, writeAttachmentFromBase64 } from './files';
 import { ageFrom, escapeHtml, formatDate, safeFileName, todayIso } from './format';
 import { RECORD_TYPES, type Attachment, type DoseLog, type LabResult, type EmergencyInfo, type MedicalRecord, type Medication, type Member, type Vaccination, type Vital } from './types';
+import { t } from '../i18n';
 
 const BUNDLE_FORMAT = 'family-health-registry';
 /** v2 added lab results, v3 medicines, v4 vaccinations, v5 emergency cards, v6 vitals; older files still import. */
 const BUNDLE_VERSION = 6;
 const SAFE_FILE_NAME = /^[A-Za-z0-9-]+\.[A-Za-z0-9]{1,8}$/;
 
-type BundleAttachment = Attachment & { data: string };
+/** `data` is the file as base64; family sync leaves it out and sends files separately. */
+export type BundleAttachment = Attachment & { data?: string };
 
 export type RegistryBundle = {
   format: typeof BUNDLE_FORMAT;
@@ -48,6 +52,30 @@ export type RegistryBundle = {
  * over WhatsApp, email, AirDrop, Nearby Share, Drive, etc.
  */
 export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string[]) {
+  const bundle = await buildRegistryBundle(db, memberIds);
+  const { members, records, attachments, labResults = [], medications = [], vaccinations = [], vitals = [] } = bundle;
+  const label = members.length === 1 ? safeFileName(members[0].name) : 'family';
+  const file = new File(Paths.cache, `${label}-health-records-${todayIso()}.json`);
+  if (file.exists) file.delete();
+  file.create();
+  file.write(JSON.stringify(bundle));
+  await shareFile(file.uri, 'application/json', 'Share health records');
+  return {
+    members: members.length,
+    records: records.length,
+    attachments: attachments.length,
+    labResults: labResults.length,
+    medications: medications.length,
+    vaccinations: vaccinations.length,
+    vitals: vitals.length,
+  };
+}
+
+/**
+ * Everything about the given members (or everyone) as one bundle. With
+ * `withFiles: false` attachments are listed without their content.
+ */
+export async function buildRegistryBundle(db: SQLiteDatabase, memberIds?: string[], withFiles = true): Promise<RegistryBundle> {
   const allMembers = await DB.listMembers(db);
   const members = allMembers
     .filter((m) => !memberIds || memberIds.includes(m.id))
@@ -68,6 +96,10 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
       records.push(r);
       labResults.push(...(await Labs.listResultsForRecord(db, r.id)));
       for (const a of await DB.listAttachments(db, r.id)) {
+        if (!withFiles) {
+          attachments.push(a);
+          continue;
+        }
         const data = readAttachmentBase64(a);
         if (data !== null) attachments.push({ ...a, data });
       }
@@ -92,21 +124,7 @@ export async function shareRegistryBundle(db: SQLiteDatabase, memberIds?: string
     vitals,
   };
 
-  const label = members.length === 1 ? safeFileName(members[0].name) : 'family';
-  const file = new File(Paths.cache, `${label}-health-records-${todayIso()}.json`);
-  if (file.exists) file.delete();
-  file.create();
-  file.write(JSON.stringify(bundle));
-  await shareFile(file.uri, 'application/json', 'Share health records');
-  return {
-    members: members.length,
-    records: records.length,
-    attachments: attachments.length,
-    labResults: labResults.length,
-    medications: medications.length,
-    vaccinations: vaccinations.length,
-    vitals: vitals.length,
-  };
+  return bundle;
 }
 
 export type ImportResult = {
@@ -128,12 +146,16 @@ function parseBundle(text: string): RegistryBundle {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error('This file is not a Family Health Registry export.');
+    throw new Error(t('This file is not a Family Health Registry export.'));
   }
+  return validateBundle(data);
+}
+
+export function validateBundle(data: unknown): RegistryBundle {
   const b = data as Partial<RegistryBundle>;
-  if (b?.format !== BUNDLE_FORMAT) throw new Error('This file is not a Family Health Registry export.');
+  if (b?.format !== BUNDLE_FORMAT) throw new Error(t('This file is not a Family Health Registry export.'));
   if (typeof b.version !== 'number' || b.version > BUNDLE_VERSION) {
-    throw new Error('This file was made by a newer version of the app. Please update the app and try again.');
+    throw new Error(t('This file was made by a newer version of the app. Please update the app and try again.'));
   }
   if (
     !Array.isArray(b.members) ||
@@ -146,7 +168,7 @@ function parseBundle(text: string): RegistryBundle {
     (b.emergencyInfo !== undefined && !Array.isArray(b.emergencyInfo)) ||
     (b.vitals !== undefined && !Array.isArray(b.vitals))
   ) {
-    throw new Error('The export file is incomplete or damaged.');
+    throw new Error(t('The export file is incomplete or damaged.'));
   }
   return b as RegistryBundle;
 }
@@ -156,7 +178,16 @@ function parseBundle(text: string): RegistryBundle {
  * sides have the same member or record, the most recently edited copy wins.
  */
 export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Promise<ImportResult> {
-  const bundle = parseBundle(await new File(uri).text());
+  return (await mergeRegistryBundle(db, parseBundle(await new File(uri).text()))).result;
+}
+
+/**
+ * Merges a bundle into this phone. Attachments that come without their file
+ * content (family sync) and aren't on this phone yet are returned, for the
+ * caller to fetch and add with `addSyncedAttachment`.
+ */
+export async function mergeRegistryBundle(db: SQLiteDatabase, bundle: RegistryBundle) {
+  const missingFiles: Attachment[] = [];
   const result: ImportResult = {
     membersAdded: 0,
     membersUpdated: 0,
@@ -201,10 +232,14 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
 
     for (const { data, ...a } of bundle.attachments) {
       // The file name becomes a path on disk, so never trust it from a shared file.
-      if (!SAFE_FILE_NAME.test(a.fileName) || typeof data !== 'string') continue;
+      if (!SAFE_FILE_NAME.test(a.fileName)) continue;
       if (!(await DB.getRecord(db, a.recordId))) continue;
       const exists = await db.getFirstAsync('SELECT id FROM attachments WHERE id = ?', a.id);
       if (exists) continue;
+      if (typeof data !== 'string') {
+        missingFiles.push(a);
+        continue;
+      }
       writeAttachmentFromBase64(a, data);
       await DB.insertAttachment(db, a);
       result.attachmentsAdded++;
@@ -266,7 +301,16 @@ export async function importRegistryBundle(db: SQLiteDatabase, uri: string): Pro
     }
   });
 
-  return result;
+  return { result, missingFiles };
+}
+
+/** Adds an attachment whose file arrived separately (family sync). */
+export async function addSyncedAttachment(db: SQLiteDatabase, a: Attachment, base64: string) {
+  if (!SAFE_FILE_NAME.test(a.fileName) || !(await DB.getRecord(db, a.recordId))) return false;
+  if (await db.getFirstAsync('SELECT id FROM attachments WHERE id = ?', a.id)) return false;
+  writeAttachmentFromBase64(a, base64);
+  await DB.insertAttachment(db, a);
+  return true;
 }
 
 const isDateText = (v: unknown) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -449,7 +493,7 @@ async function printAndShare(html: string, baseName: string) {
 
 export async function shareMemberSummaryPdf(db: SQLiteDatabase, memberId: string) {
   const m = await DB.getMember(db, memberId);
-  if (!m) throw new Error('Family member not found.');
+  if (!m) throw new Error(t('Family member not found.'));
   const records = await DB.listRecords(db, memberId);
   const meds = (await Meds.listMedications(db, memberId)).filter((md) => isCurrent(md, todayIso()));
   const vaccines = sortVaccinations(await Vax.listVaccinations(db, memberId), todayIso());
@@ -524,9 +568,94 @@ export async function shareMemberSummaryPdf(db: SQLiteDatabase, memberId: string
   await printAndShare(html, `${m.name}-health-summary`);
 }
 
+/** PDFs are for doctors and stay in English whatever the app language. */
+const PANEL_NAMES: Record<PanelKey, string> = {
+  diabetes: 'Diabetes',
+  lipid: 'Lipid profile',
+  thyroid: 'Thyroid',
+  kidney: 'Kidney',
+  liver: 'Liver',
+  blood: 'Blood count',
+  vitamins: 'Vitamins & minerals',
+  other: 'Other tests',
+};
+
+/** Columns of past reports that fit across a portrait page next to the test name and range. */
+const SMART_PDF_COLUMNS = 6;
+
+export async function shareSmartReportPdf(db: SQLiteDatabase, memberId: string) {
+  const m = await DB.getMember(db, memberId);
+  if (!m) throw new Error(t('Family member not found.'));
+  const report = buildSmartReport(await Labs.listMemberResults(db, memberId));
+  if (!report.testCount) throw new Error(t('No test results yet'));
+  const cols = report.columns.slice(-SMART_PDF_COLUMNS);
+  const trimmed = report.columns.length - cols.length;
+  const changeWords = { toward: 'toward range', away: 'away from range', same: 'about the same', unknown: '' };
+
+  const glance = report.panels
+    .map(
+      (p) =>
+        `<tr><td>${escapeHtml(PANEL_NAMES[p.key])}</td><td>${p.tests.length}</td><td class="${p.outOfRange ? 'high' : ''}">${p.outOfRange || '—'}</td></tr>`
+    )
+    .join('');
+
+  const panels = report.panels
+    .map((p) => {
+      const rows = p.tests
+        .map((x) => {
+          const cells = cols
+            .map((c) => {
+              const pt = x.byRecord[c.recordId];
+              if (!pt) return '<td class="muted">—</td>';
+              const st = cellStatus(pt);
+              const flag = st === 'high' ? ' ↑' : st === 'low' ? ' ↓' : '';
+              return `<td class="${flag ? 'high cellout' : ''}">${escapeHtml(formatValue(pt.value))}${flag}</td>`;
+            })
+            .join('');
+          const change = x.overall.unitChanged
+            ? 'unit changed'
+            : x.overall.delta === null
+              ? '—'
+              : `${formatDelta(x.overall.delta)}${changeWords[x.overall.kind] ? `<div class="muted">${changeWords[x.overall.kind]}</div>` : ''}`;
+          const about = aboutTest(x.testKey, true);
+          return `<tr>
+            <td><b>${escapeHtml(x.testName)}</b> <span class="muted">${escapeHtml(x.unit)}</span>${about ? `<div class="muted small">${escapeHtml(about)}</div>` : ''}</td>
+            <td>${escapeHtml(formatRange(x.latest.refLow, x.latest.refHigh)) || '<span class="muted">—</span>'}</td>
+            ${cells}
+            <td>${x.points.length > 1 ? `<span class="muted">${escapeHtml(formatValue(x.first.value))} (${escapeHtml(formatDate(x.first.date))}) →</span><br>${change}` : '—'}</td>
+          </tr>`;
+        })
+        .join('');
+      return `<h2>${escapeHtml(PANEL_NAMES[p.key])}</h2>
+        <table class="smart"><tr><th>Test</th><th>Range</th>${cols.map((c) => `<th>${escapeHtml(formatDate(c.date))}</th>`).join('')}<th>First → latest</th></tr>${rows}</table>`;
+    })
+    .join('');
+
+  const period =
+    report.columns.length > 1
+      ? `${report.columns.length} reports · ${escapeHtml(formatDate(report.firstDate))} to ${escapeHtml(formatDate(report.latestDate))}`
+      : `1 report · ${escapeHtml(formatDate(report.latestDate))}`;
+
+  const html = `<html><head><meta charset="utf-8"><style>${PDF_STYLES}
+    .smart { font-size: 11px; } .smart td, .smart th { padding: 4px 5px; }
+    .small { font-size: 10px; } .cellout { background: #FFF7ED; }
+    </style></head><body>
+    <h1>${escapeHtml(m.name)}</h1>
+    <div class="muted">Smart lab report · ${period} · generated ${escapeHtml(formatDate(todayIso()))}</div>
+    <h2>Health at a glance</h2>
+    <table><tr><th>Area</th><th>Tests</th><th>Out of range on latest report</th></tr>${glance}</table>
+    ${trimmed ? `<p class="muted">Showing the latest ${cols.length} of ${report.columns.length} reports. The last column compares the first ever result with the latest.</p>` : ''}
+    ${panels}
+    <p class="muted">↑ above / ↓ below the range printed on that report. Ranges are each lab's own; this summary is not a diagnosis.</p>
+    <footer>Family Health Registry</footer>
+  </body></html>`;
+
+  await printAndShare(html, `${m.name}-smart-lab-report`);
+}
+
 export async function shareRecordPdf(db: SQLiteDatabase, recordId: string) {
   const r = await DB.getRecord(db, recordId);
-  if (!r) throw new Error('Record not found.');
+  if (!r) throw new Error(t('Record not found.'));
   const m = await DB.getMember(db, r.memberId);
   const attachments = await DB.listAttachments(db, recordId);
   const results = await Labs.listResultsForRecord(db, recordId);
@@ -568,7 +697,7 @@ export async function shareRecordPdf(db: SQLiteDatabase, recordId: string) {
 /** A one-page emergency card with the QR code, to print, keep in a wallet or send. */
 export async function shareEmergencyPdf(db: SQLiteDatabase, memberId: string) {
   const m = await DB.getMember(db, memberId);
-  if (!m) throw new Error('Family member not found.');
+  if (!m) throw new Error(t('Family member not found.'));
   const info = await Emergency.getEmergencyInfo(db, memberId);
   const meds = (await Meds.listMedications(db, memberId))
     .filter((md) => isCurrent(md, todayIso()))

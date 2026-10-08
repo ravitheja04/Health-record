@@ -14,6 +14,7 @@ import { formatBytes, persistPendingFile, removeAttachmentFiles, type PendingFil
 import { isValidDate, todayIso } from '@/lib/format';
 import { showError } from '@/lib/useQuery';
 import { RECORD_TYPES, type Attachment, type MedicalRecord, type Member, type RecordType } from '@/lib/types';
+import { t } from '@/i18n';
 
 const TYPE_KEYS = Object.keys(RECORD_TYPES) as RecordType[];
 
@@ -52,7 +53,7 @@ export default function EditRecordScreen() {
         createdAt: now,
         updatedAt: now,
       });
-    })().catch((e) => showError('Could not load record', e));
+    })().catch((e) => showError(t('Could not load record'), e));
   }, [db, params.id, params.memberId, params.type]);
 
   if (!record) return null;
@@ -60,7 +61,7 @@ export default function EditRecordScreen() {
 
   async function takePhoto() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) return Alert.alert('Camera access needed', 'Allow camera access in Settings to photograph reports.');
+    if (!perm.granted) return Alert.alert(t('Camera access needed'), t('Allow camera access in Settings to photograph reports.'));
     const res = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (!res.canceled) addImages(res.assets);
   }
@@ -97,10 +98,10 @@ export default function EditRecordScreen() {
 
   async function save() {
     if (!record) return;
-    if (!record.memberId) return Alert.alert('Choose a family member', 'Select who this record belongs to.');
-    if (!record.title.trim()) return Alert.alert('Title required', 'Give the record a short title, e.g. “Blood test – CBC”.');
+    if (!record.memberId) return Alert.alert(t('Choose a family member'), t('Select who this record belongs to.'));
+    if (!record.title.trim()) return Alert.alert(t('Title required'), t('Give the record a short title, e.g. “Blood test – CBC”.'));
     if (!isValidDate(record.date)) {
-      return Alert.alert('Check the date', 'Enter it as DD/MM/YYYY, for example 14/03/2026, or pick it from the calendar.');
+      return Alert.alert(t('Check the date'), t('Enter it as DD/MM/YYYY, for example 14/03/2026, or pick it from the calendar.'));
     }
 
     setSaving(true);
@@ -116,7 +117,7 @@ export default function EditRecordScreen() {
       if (params.id) router.back();
       else router.replace({ pathname: '/record/[id]', params: { id: record.id } });
     } catch (e) {
-      showError('Could not save record', e);
+      showError(t('Could not save record'), e);
       setSaving(false);
     }
   }
@@ -138,33 +139,33 @@ export default function EditRecordScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, { gap: 16, paddingBottom: insets.bottom + 24 }]}>
         <ChipSelect
-          label="Family member *"
+          label={t('Family member *')}
           options={members.map((m) => m.id)}
           value={record.memberId || null}
           onChange={(v) => set('memberId', v ?? '')}
           renderLabel={(mid) => members.find((m) => m.id === mid)?.name ?? ''}
         />
         <ChipSelect
-          label="Record type"
+          label={t('Record type')}
           options={TYPE_KEYS}
           value={record.type}
           onChange={(v) => set('type', v ?? 'other')}
           renderLabel={(t) => RECORD_TYPES[t].label}
         />
-        <Field label="Title *" value={record.title} onChangeText={(v) => set('title', v)} placeholder="e.g. Complete blood count" />
-        <DateField label="Date *" value={record.date} onChange={(v) => set('date', v ?? '')} />
-        <Field label="Doctor" value={record.doctor} onChangeText={(v) => set('doctor', v)} placeholder="e.g. Dr. Mehta" />
-        <Field label="Hospital / Lab / Clinic" value={record.facility} onChangeText={(v) => set('facility', v)} placeholder="e.g. City Diagnostics" />
+        <Field label={t('Title *')} value={record.title} onChangeText={(v) => set('title', v)} placeholder={t('e.g. Complete blood count')} />
+        <DateField label={t('Date *')} value={record.date} onChange={(v) => set('date', v ?? '')} />
+        <Field label={t('Doctor')} value={record.doctor} onChangeText={(v) => set('doctor', v)} placeholder={t('e.g. Dr. Mehta')} />
+        <Field label={t('Hospital / Lab / Clinic')} value={record.facility} onChangeText={(v) => set('facility', v)} placeholder={t('e.g. City Diagnostics')} />
         <Field
-          label="Notes / results"
+          label={t('Notes / results')}
           value={record.notes}
           onChangeText={(v) => set('notes', v)}
-          placeholder="Key results, dosage, follow-up date…"
+          placeholder={t('Key results, dosage, follow-up date…')}
           multiline
         />
 
         <View style={styles.field}>
-          <Text style={styles.label}>Attachments</Text>
+          <Text style={styles.label}>{t('Attachments')}</Text>
           {fileRows.map((f) => (
             <Card key={f.key} style={{ paddingVertical: 10 }}>
               <View style={styles.row}>
@@ -175,20 +176,20 @@ export default function EditRecordScreen() {
                   </Text>
                   {f.size ? <Text style={styles.subtitle}>{formatBytes(f.size)}</Text> : null}
                 </View>
-                <Pressable accessibilityLabel={`Remove ${f.name}`} hitSlop={8} onPress={f.onRemove}>
+                <Pressable accessibilityLabel={t('Remove {name}', { name: f.name })} hitSlop={8} onPress={f.onRemove}>
                   <Icon name="trash-outline" color={colors.danger} />
                 </Pressable>
               </View>
             </Card>
           ))}
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button style={{ flex: 1 }} variant="secondary" title="Camera" icon="camera-outline" onPress={() => takePhoto().catch((e) => showError('Camera error', e))} />
-            <Button style={{ flex: 1 }} variant="secondary" title="Photos" icon="image-outline" onPress={() => pickPhotos().catch((e) => showError('Photos error', e))} />
-            <Button style={{ flex: 1 }} variant="secondary" title="Files" icon="attach-outline" onPress={() => pickDocuments().catch((e) => showError('Files error', e))} />
+            <Button style={{ flex: 1 }} variant="secondary" title={t('Camera')} icon="camera-outline" onPress={() => takePhoto().catch((e) => showError(t('Camera error'), e))} />
+            <Button style={{ flex: 1 }} variant="secondary" title={t('Photos')} icon="image-outline" onPress={() => pickPhotos().catch((e) => showError(t('Photos error'), e))} />
+            <Button style={{ flex: 1 }} variant="secondary" title={t('Files')} icon="attach-outline" onPress={() => pickDocuments().catch((e) => showError(t('Files error'), e))} />
           </View>
         </View>
 
-        <Button title={params.id ? 'Save changes' : 'Save record'} icon="checkmark" onPress={save} loading={saving} />
+        <Button title={params.id ? t('Save changes') : t('Save record')} icon="checkmark" onPress={save} loading={saving} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

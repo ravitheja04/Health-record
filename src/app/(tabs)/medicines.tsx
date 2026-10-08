@@ -22,6 +22,7 @@ import { listDoseLogs, listMedications, setDoseStatus, type MedicationWithMember
 import { hasNotificationPermission, requestNotificationPermission, syncRemindersQuietly } from '@/lib/reminders';
 import { showError, useQuery } from '@/lib/useQuery';
 import type { DoseStatus } from '@/lib/types';
+import { t, tn } from '@/i18n';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -35,16 +36,16 @@ function DoseRow({ dose, onSet, last }: { dose: Dose; onSet: (status: DoseStatus
   const taken = dose.status === 'taken';
   const skipped = dose.status === 'skipped';
   const late = dose.status === 'pending' && dose.time < nowTime();
-  const detail = [formatTime(dose.time), med.instructions].filter(Boolean).join(' · ');
+  const detail = [formatTime(dose.time), med.instructions && t(med.instructions)].filter(Boolean).join(' · ');
 
   function more() {
     Alert.alert(`${med.name}${med.dose ? ` ${med.dose}` : ''}`, `${med.memberName} · ${formatTime(dose.time)}`, [
       // Android shows at most three buttons; a taken dose is undone with its circle instead.
       dose.status === 'skipped'
-        ? { text: 'Undo skip', onPress: () => onSet(null) }
-        : { text: 'Mark as skipped', onPress: () => onSet('skipped') },
-      { text: 'Edit medicine', onPress: () => router.push({ pathname: '/medicines/edit', params: { id: med.id } }) },
-      { text: 'Cancel', style: 'cancel' as const },
+        ? { text: t('Undo skip'), onPress: () => onSet(null) }
+        : { text: t('Mark as skipped'), onPress: () => onSet('skipped') },
+      { text: t('Edit medicine'), onPress: () => router.push({ pathname: '/medicines/edit', params: { id: med.id } }) },
+      { text: t('Cancel'), style: 'cancel' as const },
     ]);
   }
 
@@ -60,7 +61,7 @@ function DoseRow({ dose, onSet, last }: { dose: Dose; onSet: (status: DoseStatus
           paddingHorizontal: 14,
           paddingVertical: 10,
           borderBottomWidth: last ? 0 : 1,
-          borderBottomColor: '#F1F5F9',
+          borderBottomColor: colors.subtle,
         },
         pressed && styles.pressed,
       ]}>
@@ -72,14 +73,14 @@ function DoseRow({ dose, onSet, last }: { dose: Dose; onSet: (status: DoseStatus
           {med.name}
           {med.dose ? ` ${med.dose}` : ''}
         </Text>
-        <Text style={[styles.subtitle, { marginTop: 0 }, late && { color: '#C2410C', fontWeight: '600' }]} numberOfLines={1}>
-          {skipped ? `Skipped · ${detail}` : late ? `Due ${detail}` : detail}
+        <Text style={[styles.subtitle, { marginTop: 0 }, late && { color: colors.warnStrong, fontWeight: '600' }]} numberOfLines={1}>
+          {skipped ? `${t('Skipped')} · ${detail}` : late ? t('Due {detail}', { detail }) : detail}
         </Text>
       </View>
       <Pressable
         accessibilityRole="checkbox"
         accessibilityState={{ checked: taken }}
-        accessibilityLabel={`${med.name} for ${med.memberName} at ${formatTime(dose.time)}, ${taken ? 'taken' : 'not taken'}`}
+        accessibilityLabel={t('{med} for {name} at {time}, {state}', { med: med.name, name: med.memberName, time: formatTime(dose.time), state: taken ? t('taken') : t('not taken') })}
         hitSlop={6}
         onPress={() => onSet(taken ? null : 'taken')}
         style={{
@@ -88,11 +89,11 @@ function DoseRow({ dose, onSet, last }: { dose: Dose; onSet: (status: DoseStatus
           borderRadius: 22,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: taken ? '#DCFCE7' : colors.card,
+          backgroundColor: taken ? colors.okBg : colors.card,
           borderWidth: taken ? 0 : 2,
-          borderColor: late ? '#FDBA74' : '#CBD5E1',
+          borderColor: late ? colors.warnBorder : colors.border,
         }}>
-        {taken ? <Icon name="checkmark" size={22} color="#047857" /> : null}
+        {taken ? <Icon name="checkmark" size={22} color={colors.okText} /> : null}
       </Pressable>
     </Pressable>
   );
@@ -127,7 +128,7 @@ export default function MedicinesScreen() {
       refresh();
       syncRemindersQuietly(db);
     } catch (e) {
-      showError('Could not update', e);
+      showError(t('Could not update'), e);
     }
   }
 
@@ -142,7 +143,7 @@ export default function MedicinesScreen() {
       <Tabs.Screen
         options={{
           headerRight: () => (
-            <Pressable accessibilityLabel="Add medicine" hitSlop={8} style={{ marginRight: 16 }} onPress={add}>
+            <Pressable accessibilityLabel={t('Add medicine')} hitSlop={8} style={{ marginRight: 16 }} onPress={add}>
               <Icon name="add-outline" size={26} color={colors.primary} />
             </Pressable>
           ),
@@ -155,21 +156,21 @@ export default function MedicinesScreen() {
         {data.meds.length === 0 ? (
           <EmptyState
             icon="medkit-outline"
-            title="No medicines yet"
-            message="Add the medicines your family takes. You’ll get a reminder at each dose time and a warning before they run out.">
-            <Button title="Add medicine" icon="add-outline" onPress={add} />
+            title={t('No medicines yet')}
+            message={t('Add the medicines your family takes. You’ll get a reminder at each dose time and a warning before they run out.')}>
+            <Button title={t('Add medicine')} icon="add-outline" onPress={add} />
           </EmptyState>
         ) : (
           <>
             <View role="tablist" style={{ flexDirection: 'row', backgroundColor: colors.border, borderRadius: 12, padding: 4 }}>
-              {(['today', 'all'] as const).map((t) => (
+              {(['today', 'all'] as const).map((key) => (
                 <Pressable
-                  key={t}
+                  key={key}
                   role="tab"
-                  accessibilityState={{ selected: tab === t }}
-                  onPress={() => setTab(t)}
-                  style={{ flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center', backgroundColor: tab === t ? colors.card : 'transparent' }}>
-                  <Text style={{ fontWeight: '600', color: tab === t ? colors.text : colors.muted }}>{t === 'today' ? 'Today' : 'All medicines'}</Text>
+                  accessibilityState={{ selected: tab === key }}
+                  onPress={() => setTab(key)}
+                  style={{ flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center', backgroundColor: tab === key ? colors.card : 'transparent' }}>
+                  <Text style={{ fontWeight: '600', color: tab === key ? colors.text : colors.muted }}>{key === 'today' ? t('Today') : t('All medicines')}</Text>
                 </Pressable>
               ))}
             </View>
@@ -189,16 +190,16 @@ export default function MedicinesScreen() {
             ) : null}
 
             {remindersWanted && !data.permission ? (
-              <Card style={{ backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }}>
-                <Text style={[styles.title, { color: '#9A3412' }]}>Reminders are turned off</Text>
-                <Text style={[styles.subtitle, { color: '#9A3412' }]}>Allow notifications so this phone can remind you at each dose time.</Text>
+              <Card style={{ backgroundColor: colors.warnBg, borderColor: colors.warnBorder }}>
+                <Text style={[styles.title, { color: colors.warnText }]}>{t('Reminders are turned off')}</Text>
+                <Text style={[styles.subtitle, { color: colors.warnText }]}>{t('Allow notifications so this phone can remind you at each dose time.')}</Text>
                 <Button
-                  title="Allow notifications"
+                  title={t('Allow notifications')}
                   icon="notifications-outline"
                   style={{ marginTop: 10 }}
                   onPress={async () => {
                     const ok = await requestNotificationPermission();
-                    if (!ok) Alert.alert('Turn on in Settings', 'Open your phone’s Settings, find Family Health Registry, and allow notifications.');
+                    if (!ok) Alert.alert(t('Turn on in Settings'), t('Open your phone’s Settings, find Family Health Registry, and allow notifications.'));
                     syncRemindersQuietly(db);
                     refresh();
                   }}
@@ -207,15 +208,15 @@ export default function MedicinesScreen() {
             ) : null}
 
             {refills.map((m) => (
-              <Card key={`refill-${m.id}`} style={{ backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }}>
+              <Card key={`refill-${m.id}`} style={{ backgroundColor: colors.warnBg, borderColor: colors.warnBorder }}>
                 <View style={styles.row}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.title, { color: '#9A3412', fontSize: 15 }]}>Refill soon: {m.name}</Text>
-                    <Text style={[styles.subtitle, { color: '#9A3412' }]}>
-                      {m.memberName} · {m.stock} left, about {daysOfSupply(m)} day{daysOfSupply(m) === 1 ? '' : 's'}
+                    <Text style={[styles.title, { color: colors.warnText, fontSize: 15 }]}>{t('Refill soon: {med}', { med: m.name })}</Text>
+                    <Text style={[styles.subtitle, { color: colors.warnText }]}>
+                      {m.memberName} · {tn(daysOfSupply(m) ?? 0, '{stock} left, about {n} day', '{stock} left, about {n} days').replace('{stock}', String(m.stock))}
                     </Text>
                   </View>
-                  <Button title="Update" variant="secondary" onPress={() => router.push({ pathname: '/medicines/edit', params: { id: m.id } })} />
+                  <Button title={t('Update')} variant="secondary" onPress={() => router.push({ pathname: '/medicines/edit', params: { id: m.id } })} />
                 </View>
               </Card>
             ))}
@@ -228,7 +229,7 @@ export default function MedicinesScreen() {
                   </Text>
                   {doses.length ? (
                     <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                      {takenCount} of {doses.length} taken
+                      {t('{taken} of {total} taken', { taken: takenCount, total: doses.length })}
                     </Text>
                   ) : null}
                 </View>
@@ -237,7 +238,7 @@ export default function MedicinesScreen() {
                     <View style={{ width: `${(takenCount / doses.length) * 100}%`, height: 8, backgroundColor: colors.primary }} />
                   </View>
                 ) : (
-                  <Text style={styles.subtitle}>No doses due today{filter ? ' for this person' : ''}.</Text>
+                  <Text style={styles.subtitle}>{filter ? t('No doses due today for this person.') : t('No doses due today.')}</Text>
                 )}
                 {slots.map(({ slot, list }) => (
                   <View key={slot} style={{ gap: 8 }}>
@@ -250,7 +251,7 @@ export default function MedicinesScreen() {
                   </View>
                 ))}
                 {doses.length ? (
-                  <Text style={[styles.subtitle, { textAlign: 'center' }]}>Tap the circle when a dose is taken. Tap the row to skip it.</Text>
+                  <Text style={[styles.subtitle, { textAlign: 'center' }]}>{t('Tap the circle when a dose is taken. Tap the row to skip it.')}</Text>
                 ) : null}
               </>
             ) : (
@@ -280,7 +281,7 @@ function AllMedicines({ meds, today }: { meds: MedicationWithMember[]; today: st
         key={m.id}
         onPress={() => router.push({ pathname: '/medicines/edit', params: { id: m.id } })}
         style={({ pressed }) => [
-          { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: i === list.length - 1 ? 0 : 1, borderBottomColor: '#F1F5F9' },
+          { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: i === list.length - 1 ? 0 : 1, borderBottomColor: colors.subtle },
           pressed && styles.pressed,
         ]}>
         <Avatar name={m.memberName} color={m.memberColor} size={32} />
@@ -303,13 +304,13 @@ function AllMedicines({ meds, today }: { meds: MedicationWithMember[]; today: st
     <>
       {current.length ? (
         <>
-          <SectionTitle>Taking now ({current.length})</SectionTitle>
+          <SectionTitle>{t('Taking now ({n})', { n: current.length })}</SectionTitle>
           <Card style={{ padding: 0, overflow: 'hidden' }}>{current.map(row)}</Card>
         </>
       ) : null}
       {past.length ? (
         <>
-          <SectionTitle>Stopped ({past.length})</SectionTitle>
+          <SectionTitle>{t('Stopped ({n})', { n: past.length })}</SectionTitle>
           <Card style={{ padding: 0, overflow: 'hidden' }}>{past.map(row)}</Card>
         </>
       ) : null}

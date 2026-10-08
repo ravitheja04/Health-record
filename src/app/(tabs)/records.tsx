@@ -8,6 +8,7 @@ import { Button, colors, EmptyState, Icon, styles } from '@/components/ui';
 import { listAllRecords, listMembers } from '@/lib/db';
 import { useQuery } from '@/lib/useQuery';
 import { RECORD_TYPES, type RecordType } from '@/lib/types';
+import { t, tn } from '@/i18n';
 
 function FilterChips<T extends string>({ items, value, onChange }: {
   items: { key: T; label: string }[];
@@ -16,7 +17,7 @@ function FilterChips<T extends string>({ items, value, onChange }: {
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} keyboardShouldPersistTaps="handled">
-      {[{ key: null as T | null, label: 'All' }, ...items].map((item) => {
+      {[{ key: null as T | null, label: t('All') }, ...items].map((item) => {
         const selected = item.key === value;
         return (
           <Pressable
@@ -48,12 +49,12 @@ export default function RecordsTab() {
         headerRight: () => (
           <View style={{ flexDirection: 'row', gap: 18, marginRight: 16 }}>
             <Pressable
-              accessibilityLabel="Read a lab report PDF"
+              accessibilityLabel={t('Read a lab report PDF')}
               hitSlop={8}
               onPress={() => router.push({ pathname: '/record/import', params: member ? { memberId: member } : {} })}>
               <Icon name="scan-outline" size={24} color={colors.primary} />
             </Pressable>
-            <Pressable accessibilityLabel="Add record" hitSlop={8} onPress={add}>
+            <Pressable accessibilityLabel={t('Add record')} hitSlop={8} onPress={add}>
               <Icon name="add-outline" size={26} color={colors.primary} />
             </Pressable>
           </View>
@@ -88,13 +89,13 @@ export default function RecordsTab() {
               <Icon name="search-outline" color={colors.muted} size={18} />
               <TextInput
                 style={{ flex: 1, fontSize: 15, paddingVertical: 8, color: colors.text }}
-                placeholder="Search title, doctor, hospital, notes"
-                placeholderTextColor="#94A3B8"
+                placeholder={t('Search title, doctor, hospital, notes')}
+                placeholderTextColor={colors.placeholder}
                 value={query}
                 onChangeText={setQuery}
                 clearButtonMode="while-editing"
                 returnKeyType="search"
-                accessibilityLabel="Search records"
+                accessibilityLabel={t('Search records')}
               />
             </View>
             {data.members.length > 1 ? (
@@ -104,17 +105,17 @@ export default function RecordsTab() {
               <FilterChips items={presentTypes.map((t) => ({ key: t, label: RECORD_TYPES[t].label }))} value={type} onChange={setType} />
             ) : null}
             <Text style={styles.subtitle}>
-              {list.length} record{list.length === 1 ? '' : 's'}
+              {tn(list.length, '{n} record', '{n} records')}
             </Text>
           </View>
         }
         ListEmptyComponent={
           data.records.length === 0 ? (
-            <EmptyState icon="folder-open-outline" title="No records yet" message="Add lab reports, prescriptions, scans and other medical papers.">
-              {data.members.length ? <Button title="Add record" icon="add-outline" onPress={add} /> : null}
+            <EmptyState icon="folder-open-outline" title={t('No records yet')} message={t('Add lab reports, prescriptions, scans and other medical papers.')}>
+              {data.members.length ? <Button title={t('Add record')} icon="add-outline" onPress={add} /> : null}
             </EmptyState>
           ) : (
-            <Text style={[styles.subtitle, { textAlign: 'center', marginTop: 24 }]}>No records match.</Text>
+            <Text style={[styles.subtitle, { textAlign: 'center', marginTop: 24 }]}>{t('No records match.')}</Text>
           )
         }
       />

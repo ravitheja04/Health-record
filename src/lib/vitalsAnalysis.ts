@@ -1,6 +1,7 @@
 import { formatDate } from './format';
 import { formatTime } from './medSchedule';
 import type { Vital, VitalType } from './types';
+import { t } from '../i18n';
 
 /**
  * Typical adult ranges are a neutral guide only: readings are labelled "above"
@@ -28,8 +29,12 @@ export type VitalDef = {
 export const VITALS: VitalDef[] = [
   {
     type: 'bp',
-    label: 'Blood pressure',
-    short: 'BP',
+    get label() {
+      return t('Blood pressure');
+    },
+    get short() {
+      return t('BP');
+    },
     unit: 'mmHg',
     icon: 'heart-outline',
     color: '#DC2626',
@@ -41,17 +46,145 @@ export const VITALS: VitalDef[] = [
     typical: { low: 90, high: 120 },
     typical2: { low: 60, high: 80 },
   },
-  { type: 'sugar', label: 'Blood sugar', short: 'Sugar', unit: 'mg/dL', icon: 'water-outline', color: '#7C3AED', min: 20, max: 700, decimals: 0, typical: { low: 70, high: 100 } },
-  { type: 'weight', label: 'Weight', short: 'Weight', unit: 'kg', icon: 'barbell-outline', color: '#0891B2', min: 1, max: 300, decimals: 1, typical: null },
-  { type: 'pulse', label: 'Heart rate', short: 'Pulse', unit: 'bpm', icon: 'pulse-outline', color: '#DB2777', min: 25, max: 250, decimals: 0, typical: { low: 60, high: 100 } },
-  { type: 'spo2', label: 'Oxygen (SpO₂)', short: 'SpO₂', unit: '%', icon: 'fitness-outline', color: '#2563EB', min: 50, max: 100, decimals: 0, typical: { low: 95, high: null } },
-  { type: 'temp', label: 'Temperature', short: 'Temp', unit: '°F', icon: 'thermometer-outline', color: '#EA580C', min: 90, max: 110, decimals: 1, typical: { low: 97, high: 99 } },
+  {
+    type: 'sugar',
+    get label() {
+      return t('Blood sugar');
+    },
+    get short() {
+      return t('Sugar');
+    },
+    unit: 'mg/dL',
+    icon: 'water-outline',
+    color: '#7C3AED',
+    min: 20,
+    max: 700,
+    decimals: 0,
+    typical: { low: 70, high: 100 },
+  },
+  {
+    type: 'weight',
+    get label() {
+      return t('Weight');
+    },
+    get short() {
+      return t('Weight');
+    },
+    unit: 'kg',
+    icon: 'barbell-outline',
+    color: '#0891B2',
+    min: 1,
+    max: 300,
+    decimals: 1,
+    typical: null,
+  },
+  {
+    type: 'pulse',
+    get label() {
+      return t('Heart rate');
+    },
+    get short() {
+      return t('Pulse');
+    },
+    unit: 'bpm',
+    icon: 'pulse-outline',
+    color: '#DB2777',
+    min: 25,
+    max: 250,
+    decimals: 0,
+    typical: { low: 60, high: 100 },
+  },
+  {
+    type: 'spo2',
+    get label() {
+      return t('Oxygen (SpO₂)');
+    },
+    get short() {
+      return t('SpO₂');
+    },
+    unit: '%',
+    icon: 'fitness-outline',
+    color: '#2563EB',
+    min: 50,
+    max: 100,
+    decimals: 0,
+    typical: { low: 95, high: null },
+  },
+  {
+    type: 'temp',
+    get label() {
+      return t('Temperature');
+    },
+    get short() {
+      return t('Temp');
+    },
+    unit: '°F',
+    icon: 'thermometer-outline',
+    color: '#EA580C',
+    min: 90,
+    max: 110,
+    decimals: 1,
+    typical: { low: 97, high: 99 },
+  },
+  // Height and head size mostly matter for children's growth (see lib/growth.ts); head size only under 5.
+  {
+    type: 'height',
+    get label() {
+      return t('Height');
+    },
+    get short() {
+      return t('Height');
+    },
+    unit: 'cm',
+    icon: 'resize-outline',
+    color: '#4F46E5',
+    min: 30,
+    max: 250,
+    decimals: 1,
+    typical: null,
+  },
+  {
+    type: 'head',
+    get label() {
+      return t('Head size');
+    },
+    get short() {
+      return t('Head');
+    },
+    unit: 'cm',
+    icon: 'happy-outline',
+    color: '#CA8A04',
+    min: 25,
+    max: 60,
+    decimals: 1,
+    typical: null,
+  },
 ];
 
+/** Vitals worth offering for a person of this age (years, or null when unknown). */
+export function vitalsForAge(age: number | null) {
+  return VITALS.filter((v) => v.type !== 'head' || (age !== null && age < 5));
+}
+
 export const SUGAR_CONTEXTS = [
-  { key: 'fasting', label: 'Fasting' },
-  { key: 'after_meal', label: 'After meal (2 hr)' },
-  { key: 'random', label: 'Random' },
+  {
+    key: 'fasting',
+    get label() {
+      return t('Fasting');
+    },
+  },
+  {
+    key: 'after_meal',
+    get label() {
+      return t('After meal (2 hr)');
+    },
+  },
+  {
+    key: 'random',
+    get label() {
+      return t('Random');
+    },
+  },
 ];
 
 export function vitalDef(type: VitalType) {
@@ -97,24 +230,33 @@ export function formatVital(v: Pick<Vital, 'type' | 'value' | 'value2'>) {
 }
 
 export function rangeText(type: VitalType, context = '') {
-  if (type === 'bp') return 'Typical: 90/60 to 120/80 mmHg';
+  if (type === 'bp') return t('Typical: 90/60 to 120/80 mmHg');
   const r = typicalRange(type, context);
   const unit = vitalDef(type).unit;
   if (!r) return '';
-  if (r.low !== null && r.high !== null) return `Typical: ${r.low}–${r.high} ${unit}`;
-  if (r.low !== null) return `Typical: ${r.low} ${unit} or more`;
-  return `Typical: up to ${r.high} ${unit}`;
+  if (r.low !== null && r.high !== null) return t('Typical: {range}', { range: `${r.low}–${r.high} ${unit}` });
+  if (r.low !== null) return t('Typical: {value} or more', { value: `${r.low} ${unit}` });
+  return t('Typical: up to {value}', { value: `${r.high} ${unit}` });
 }
 
 /** Validates typed values; returns an error message, or null when fine. */
 export function checkVital(type: VitalType, value: number | null, value2: number | null): string | null {
   const def = vitalDef(type);
-  if (value === null) return `Enter the ${type === 'bp' ? 'top (systolic) number' : def.label.toLowerCase()}.`;
-  if (value < def.min || value > def.max) return `${def.label} should be between ${def.min} and ${def.max} ${def.unit}. Check for a typo.`;
+  if (value === null)
+    return type === 'bp' ? t('Enter the top (systolic) number.') : t('Enter the {what}.', { what: def.label.toLowerCase() });
+  if (value < def.min || value > def.max) {
+    return t('{what} should be between {min} and {max} {unit}. Check for a typo.', {
+      what: def.label,
+      min: def.min,
+      max: def.max,
+      unit: def.unit,
+    });
+  }
   if (type === 'bp') {
-    if (value2 === null) return 'Enter the bottom (diastolic) number.';
-    if (value2 < def.min2! || value2 > def.max2!) return `The bottom number should be between ${def.min2} and ${def.max2}.`;
-    if (value2 >= value) return 'The top number should be higher than the bottom number.';
+    if (value2 === null) return t('Enter the bottom (diastolic) number.');
+    if (value2 < def.min2! || value2 > def.max2!)
+      return t('The bottom number should be between {min} and {max}.', { min: def.min2!, max: def.max2! });
+    if (value2 >= value) return t('The top number should be higher than the bottom number.');
   }
   return null;
 }

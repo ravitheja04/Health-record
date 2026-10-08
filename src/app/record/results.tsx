@@ -15,6 +15,7 @@ import { listMemberResults, listResultsForRecord, replaceResultsForRecord, touch
 import { getTestDef, keyForName, LAB_TESTS, PANELS, searchTests, type LabTestDef, type PanelKey } from '@/lib/labTests';
 import { showError } from '@/lib/useQuery';
 import type { Attachment, LabResult, MedicalRecord } from '@/lib/types';
+import { t, tn } from '@/i18n';
 
 type Row = {
   id: string;
@@ -110,7 +111,7 @@ export default function ResultsScreen() {
       // Just created from a report PDF: fill in what was read from it.
       const report = takePendingImport(recordId);
       if (report) applyReport(report);
-    })().catch((e) => showError('Could not load results', e));
+    })().catch((e) => showError(t('Could not load results'), e));
   }, [db, recordId, applyReport]);
 
   if (!record) return null;
@@ -160,14 +161,14 @@ export default function ResultsScreen() {
     for (const r of rows) {
       if (!r.value.trim()) continue;
       const value = parseNumber(r.value);
-      if (value === null) return Alert.alert('Check the value', `“${r.value}” for ${r.testName} is not a number.`);
+      if (value === null) return Alert.alert(t('Check the value'), t('“{value}” for {test} is not a number.', { value: r.value, test: r.testName }));
       const low = r.low.trim() ? parseNumber(r.low) : null;
       const high = r.high.trim() ? parseNumber(r.high) : null;
       if ((r.low.trim() && low === null) || (r.high.trim() && high === null)) {
-        return Alert.alert('Check the range', `The normal range for ${r.testName} must be numbers.`);
+        return Alert.alert(t('Check the range'), t('The normal range for {test} must be numbers.', { test: r.testName }));
       }
       if (low !== null && high !== null && low > high) {
-        return Alert.alert('Check the range', `For ${r.testName} the low end is above the high end.`);
+        return Alert.alert(t('Check the range'), t('For {test} the low end is above the high end.', { test: r.testName }));
       }
       results.push({
         id: r.id,
@@ -189,7 +190,7 @@ export default function ResultsScreen() {
       });
       router.back();
     } catch (e) {
-      showError('Could not save results', e);
+      showError(t('Could not save results'), e);
       setSaving(false);
     }
   }
@@ -199,7 +200,7 @@ export default function ResultsScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen options={{ title: 'Test results' }} />
+      <Stack.Screen options={{ title: t('Test results') }} />
       <ScrollView
         style={styles.screen}
         keyboardShouldPersistTaps="handled"
@@ -208,21 +209,20 @@ export default function ResultsScreen() {
           {record.title} · {formatDate(record.date)}
         </Text>
         {imported ? (
-          <Card style={{ gap: 4, borderColor: '#93C5FD', backgroundColor: '#EFF6FF' }}>
-            <Text style={[styles.title, { color: '#1E40AF' }]}>
-              Filled {imported.count} value{imported.count === 1 ? '' : 's'} from the {imported.labName || 'lab'} report
+          <Card style={{ gap: 4, borderColor: colors.infoBorder, backgroundColor: colors.infoBg }}>
+            <Text style={[styles.title, { color: colors.infoText }]}>
+              {tn(imported.count, 'Filled {n} value from the {lab} report', 'Filled {n} values from the {lab} report').replace('{lab}', imported.labName || t('lab'))}
             </Text>
-            <Text style={[styles.subtitle, { lineHeight: 19 }]}>Check each one against the PDF, fix anything that’s off, then tap Save.</Text>
+            <Text style={[styles.subtitle, { lineHeight: 19 }]}>{t('Check each one against the PDF, fix anything that’s off, then tap Save.')}</Text>
           </Card>
         ) : (
           <Text style={[styles.subtitle, { marginTop: 0 }]}>
-            Copy each value and the normal range exactly as printed on the report. Ranges are pre-filled from this person’s last
-            report or typical values, so check them.
+            {t('Copy each value and the normal range exactly as printed on the report. Ranges are pre-filled from this person’s last report or typical values, so check them.')}
           </Text>
         )}
         {readable.length && !imported ? (
           <Button
-            title={readable[0].mimeType.startsWith('image/') ? 'Read values from the attached photo' : 'Read values from the attached PDF'}
+            title={readable[0].mimeType.startsWith('image/') ? t('Read values from the attached photo') : t('Read values from the attached PDF')}
             icon="document-text-outline"
             variant="secondary"
             onPress={() => router.push({ pathname: '/record/import', params: { recordId, attachmentId: readable[0].id } })}
@@ -234,10 +234,10 @@ export default function ResultsScreen() {
             <View style={[styles.row, { gap: 8 }]}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.title}>{r.testName}</Text>
-                {notes.get(r.testKey) ? <Text style={[styles.hint, { color: '#9A3412' }]}>{notes.get(r.testKey)}</Text> : null}
+                {notes.get(r.testKey) ? <Text style={[styles.hint, { color: colors.warnText }]}>{notes.get(r.testKey)}</Text> : null}
               </View>
               <Pressable
-                accessibilityLabel={`Remove ${r.testName}`}
+                accessibilityLabel={t('Remove {name}', { name: r.testName })}
                 hitSlop={10}
                 onPress={() => setRows((list) => list.filter((x) => x.id !== r.id))}>
                 <Icon name="close-outline" color={colors.muted} size={22} />
@@ -245,50 +245,50 @@ export default function ResultsScreen() {
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1.2 }}>
-                <Text style={styles.label}>Value</Text>
+                <Text style={styles.label}>{t('Value')}</Text>
                 <TextInput
                   value={r.value}
                   onChangeText={(v) => update(r.id, { value: v })}
                   keyboardType="decimal-pad"
                   placeholder="—"
-                  placeholderTextColor="#94A3B8"
-                  accessibilityLabel={`${r.testName} value`}
+                  placeholderTextColor={colors.placeholder}
+                  accessibilityLabel={t('{test} value', { test: r.testName })}
                   style={[styles.input, { marginTop: 4, fontWeight: '700' }]}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Unit</Text>
+                <Text style={styles.label}>{t('Unit')}</Text>
                 <TextInput
                   value={r.unit}
                   onChangeText={(v) => update(r.id, { unit: v })}
                   autoCapitalize="none"
-                  placeholder="unit"
-                  placeholderTextColor="#94A3B8"
-                  accessibilityLabel={`${r.testName} unit`}
+                  placeholder={t('unit')}
+                  placeholderTextColor={colors.placeholder}
+                  accessibilityLabel={t('{test} unit', { test: r.testName })}
                   style={[styles.input, { marginTop: 4 }]}
                 />
               </View>
             </View>
             <View>
-              <Text style={styles.label}>Normal range on report</Text>
+              <Text style={styles.label}>{t('Normal range on report')}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
                 <TextInput
                   value={r.low}
                   onChangeText={(v) => update(r.id, { low: v })}
                   keyboardType="decimal-pad"
-                  placeholder="low"
-                  placeholderTextColor="#94A3B8"
-                  accessibilityLabel={`${r.testName} range low`}
+                  placeholder={t('low')}
+                  placeholderTextColor={colors.placeholder}
+                  accessibilityLabel={t('{test} range low', { test: r.testName })}
                   style={[styles.input, { flex: 1 }]}
                 />
-                <Text style={styles.subtitle}>to</Text>
+                <Text style={styles.subtitle}>{t('to')}</Text>
                 <TextInput
                   value={r.high}
                   onChangeText={(v) => update(r.id, { high: v })}
                   keyboardType="decimal-pad"
-                  placeholder="high"
-                  placeholderTextColor="#94A3B8"
-                  accessibilityLabel={`${r.testName} range high`}
+                  placeholder={t('high')}
+                  placeholderTextColor={colors.placeholder}
+                  accessibilityLabel={t('{test} range high', { test: r.testName })}
                   style={[styles.input, { flex: 1 }]}
                 />
               </View>
@@ -296,7 +296,7 @@ export default function ResultsScreen() {
           </Card>
         ))}
 
-        <SectionTitle>Add tests</SectionTitle>
+        <SectionTitle>{t('Add tests')}</SectionTitle>
         <View style={styles.chips}>
           {PANELS.filter((p) => p.key !== 'other').map((p) => (
             <Pressable key={p.key} onPress={() => addPanel(p.key)} style={styles.chip} accessibilityRole="button">
@@ -307,8 +307,8 @@ export default function ResultsScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search a test, e.g. HbA1c, TSH, vitamin D"
-          placeholderTextColor="#94A3B8"
+          placeholder={t('Search a test, e.g. HbA1c, TSH, vitamin D')}
+          placeholderTextColor={colors.placeholder}
           returnKeyType="done"
           onSubmitEditing={() => (matches[0] ? addTest(matches[0]) : addCustom(query))}
           style={styles.input}
@@ -322,13 +322,13 @@ export default function ResultsScreen() {
               </Pressable>
             ))}
             <Pressable onPress={() => addCustom(query)} style={{ paddingVertical: 10 }}>
-              <Text style={[styles.body, { color: colors.primary, fontWeight: '600' }]}>+ Add “{query.trim()}” as a new test</Text>
+              <Text style={[styles.body, { color: colors.primary, fontWeight: '600' }]}>{t('+ Add “{name}” as a new test', { name: query.trim() })}</Text>
             </Pressable>
           </Card>
         ) : null}
 
         <Button
-          title={rows.length ? 'Save results' : 'Save'}
+          title={rows.length ? t('Save results') : t('Save')}
           icon="checkmark"
           onPress={save}
           loading={saving}
@@ -336,7 +336,7 @@ export default function ResultsScreen() {
         />
         {emptyCount > 0 ? (
           <Text style={[styles.subtitle, { textAlign: 'center' }]}>
-            {emptyCount} test{emptyCount === 1 ? '' : 's'} without a value will be skipped.
+            {tn(emptyCount, '{n} test without a value will be skipped.', '{n} tests without a value will be skipped.')}
           </Text>
         ) : null}
       </ScrollView>

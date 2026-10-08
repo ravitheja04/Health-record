@@ -377,3 +377,17 @@ test('fixNumberToken repairs digits OCR confuses, and leaves words alone', () =>
   assert.equal(fixNumberToken('IU/L'), 'IU/L');
   assert.equal(fixNumberToken('Oil'), 'Oil');
 });
+
+test('duplicate report detection', async () => {
+  const { looksLikeSameReport } = await import('../extract/duplicates');
+  const saved = [
+    { testKey: 'hba1c', value: 6.4 },
+    { testKey: 'chol_total', value: 212 },
+    { testKey: 'ldl', value: 138 },
+  ];
+  assert.equal(looksLikeSameReport(saved, [{ testKey: 'hba1c', value: 6.4 }, { testKey: 'ldl', value: 138 }]), true);
+  assert.equal(looksLikeSameReport(saved, [{ testKey: 'hba1c', value: 6.1 }, { testKey: 'ldl', value: 120 }]), false); // a newer report
+  assert.equal(looksLikeSameReport(saved, [{ testKey: 'hba1c', value: 6.4 }, { testKey: 'tsh', value: 2 }]), false); // one coincidence
+  assert.equal(looksLikeSameReport([{ testKey: 'tsh', value: 2.1 }], [{ testKey: 'tsh', value: 2.1 }]), true); // single-test reports
+  assert.equal(looksLikeSameReport([], [{ testKey: 'tsh', value: 2.1 }]), false);
+});

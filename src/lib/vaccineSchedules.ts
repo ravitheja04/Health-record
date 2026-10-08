@@ -1,3 +1,5 @@
+import { t } from '../i18n';
+
 /**
  * Childhood vaccination schedules used in India, as typical ages from birth.
  * They are starting points only: the app tells families to confirm every date
@@ -33,7 +35,9 @@ const d = (id: string, name: string, dose: string, age: ScheduleAge, ageLabel: s
 export const SCHEDULES: VaccineSchedule[] = [
   {
     key: 'nis',
-    title: 'Government schedule (NIS)',
+    get title() {
+      return t('Government schedule (NIS)');
+    },
     description: 'India’s National Immunization Schedule, given free at government centres.',
     doses: [
       d('bcg', 'BCG', 'At birth', {}, 'Birth'),
@@ -65,7 +69,9 @@ export const SCHEDULES: VaccineSchedule[] = [
   },
   {
     key: 'iap',
-    title: 'IAP schedule',
+    get title() {
+      return t('IAP schedule');
+    },
     description: 'Indian Academy of Pediatrics schedule, commonly followed by private paediatricians.',
     doses: [
       d('bcg', 'BCG', 'At birth', {}, 'Birth'),

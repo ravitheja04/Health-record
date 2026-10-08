@@ -11,6 +11,7 @@ import { getMember, upsertMember } from '@/lib/db';
 import { isValidDate, todayIso } from '@/lib/format';
 import { showError } from '@/lib/useQuery';
 import { BLOOD_GROUPS, GENDERS, MEMBER_COLORS, RELATIONS, type Member } from '@/lib/types';
+import { t } from '@/i18n';
 
 function blankMember(): Member {
   const now = new Date().toISOString();
@@ -49,12 +50,12 @@ export default function EditMemberScreen() {
 
   async function save() {
     if (!member) return;
-    if (!member.name.trim()) return Alert.alert('Name required', 'Please enter the family member’s name.');
+    if (!member.name.trim()) return Alert.alert(t('Name required'), t('Please enter the family member’s name.'));
     if (member.dob && !isValidDate(member.dob)) {
-      return Alert.alert('Check date of birth', 'Enter it as DD/MM/YYYY, for example 23/04/1988, or pick it from the calendar.');
+      return Alert.alert(t('Check date of birth'), t('Enter it as DD/MM/YYYY, for example 23/04/1988, or pick it from the calendar.'));
     }
     if (member.dob && member.dob > todayIso()) {
-      return Alert.alert('Check date of birth', 'The date of birth can’t be in the future.');
+      return Alert.alert(t('Check date of birth'), t('The date of birth can’t be in the future.'));
     }
     setSaving(true);
     try {
@@ -62,7 +63,7 @@ export default function EditMemberScreen() {
       if (id) router.back();
       else router.replace({ pathname: '/member/[id]', params: { id: member.id } });
     } catch (e) {
-      showError('Could not save', e);
+      showError(t('Could not save'), e);
       setSaving(false);
     }
   }
@@ -74,31 +75,31 @@ export default function EditMemberScreen() {
         style={styles.screen}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, { gap: 16, paddingBottom: insets.bottom + 24 }]}>
-        <Field label="Full name *" value={member.name} onChangeText={(v) => set('name', v)} placeholder="e.g. Priya Sharma" autoFocus={!id} />
-        <ChipSelect label="Relation" options={RELATIONS} value={member.relation} onChange={(v) => set('relation', v ?? '')} />
-        <DateField label="Date of birth" value={member.dob} onChange={(v) => set('dob', v)} pickYearFirst allowFuture={false} />
-        <ChipSelect label="Gender" options={GENDERS} value={member.gender} onChange={(v) => set('gender', v)} />
-        <ChipSelect label="Blood group" options={BLOOD_GROUPS} value={member.bloodGroup} onChange={(v) => set('bloodGroup', v)} />
+        <Field label={t('Full name *')} value={member.name} onChangeText={(v) => set('name', v)} placeholder={t('e.g. Priya Sharma')} autoFocus={!id} />
+        <ChipSelect label={t('Relation')} options={RELATIONS} value={member.relation} onChange={(v) => set('relation', v ?? '')} renderLabel={(v) => t(v)} />
+        <DateField label={t('Date of birth')} value={member.dob} onChange={(v) => set('dob', v)} pickYearFirst allowFuture={false} />
+        <ChipSelect label={t('Gender')} options={GENDERS} value={member.gender} onChange={(v) => set('gender', v)} renderLabel={(v) => t(v)} />
+        <ChipSelect label={t('Blood group')} options={BLOOD_GROUPS} value={member.bloodGroup} onChange={(v) => set('bloodGroup', v)} />
         <Field
-          label="Allergies"
+          label={t('Allergies')}
           value={member.allergies}
           onChangeText={(v) => set('allergies', v)}
-          placeholder="e.g. Penicillin, peanuts"
+          placeholder={t('e.g. Penicillin, peanuts')}
           multiline
-          hint="Shown prominently on the profile and in shared PDFs."
+          hint={t('Shown prominently on the profile and in shared PDFs.')}
         />
-        <Field label="Medical conditions" value={member.conditions} onChangeText={(v) => set('conditions', v)} placeholder="e.g. Type 2 diabetes, asthma" multiline />
-        <Field label="Current medications" value={member.medications} onChangeText={(v) => set('medications', v)} placeholder="e.g. Metformin 500mg twice daily" multiline />
+        <Field label={t('Medical conditions')} value={member.conditions} onChangeText={(v) => set('conditions', v)} placeholder={t('e.g. Type 2 diabetes, asthma')} multiline />
+        <Field label={t('Current medications')} value={member.medications} onChangeText={(v) => set('medications', v)} placeholder={t('e.g. Metformin 500mg twice daily')} multiline />
         <Field
-          label="Emergency contact"
+          label={t('Emergency contact')}
           value={member.emergencyContact}
           onChangeText={(v) => set('emergencyContact', v)}
-          placeholder="Name and phone number"
+          placeholder={t('Name and phone number')}
         />
-        <Field label="Notes" value={member.notes} onChangeText={(v) => set('notes', v)} placeholder="Insurance ID, family doctor, anything else" multiline />
+        <Field label={t('Notes')} value={member.notes} onChangeText={(v) => set('notes', v)} placeholder={t('Insurance ID, family doctor, anything else')} multiline />
 
         <View style={styles.field}>
-          <Text style={styles.label}>Profile colour</Text>
+          <Text style={styles.label}>{t('Profile colour')}</Text>
           <View style={styles.chips}>
             {MEMBER_COLORS.map((c) => (
               <Pressable
@@ -118,7 +119,7 @@ export default function EditMemberScreen() {
           </View>
         </View>
 
-        <Button title={id ? 'Save changes' : 'Add member'} icon="checkmark" onPress={save} loading={saving} />
+        <Button title={id ? t('Save changes') : t('Add member')} icon="checkmark" onPress={save} loading={saving} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -9,13 +9,14 @@ import { DateField } from '@/components/DateField';
 import { AddTimeButton } from '@/components/TimePicker';
 import { Button, ChipSelect, colors, Field, styles } from '@/components/ui';
 import { listMembers } from '@/lib/db';
-import { isValidDate, todayIso } from '@/lib/format';
+import { ageFrom, isValidDate, todayIso } from '@/lib/format';
 import { parseNumber } from '@/lib/labAnalysis';
 import { formatTime } from '@/lib/medSchedule';
 import { showError } from '@/lib/useQuery';
-import { checkVital, nowMeasuredAt, rangeText, SUGAR_CONTEXTS, vitalDef, VITALS, vitalStatus } from '@/lib/vitalsAnalysis';
+import { checkVital, nowMeasuredAt, rangeText, SUGAR_CONTEXTS, vitalDef, VITALS, vitalsForAge, vitalStatus } from '@/lib/vitalsAnalysis';
 import { deleteVital, getVital, upsertVital } from '@/lib/vitals';
 import type { Member, Vital, VitalType } from '@/lib/types';
+import { t } from '@/i18n';
 
 export default function AddVitalScreen() {
   const params = useLocalSearchParams<{ id?: string; memberId?: string; type?: string }>();
@@ -51,12 +52,15 @@ export default function AddVitalScreen() {
         createdAt: now,
         updatedAt: now,
       });
-    })().catch((e) => showError('Could not load reading', e));
+    })().catch((e) => showError(t('Could not load reading'), e));
   }, [db, params.id, params.memberId, params.type]);
 
   if (!vital) return null;
   const set = <K extends keyof Vital>(key: K, value: Vital[K]) => setVital({ ...vital, [key]: value });
   const def = vitalDef(vital.type);
+  // Head size is only offered for under-fives, but an existing reading keeps its type.
+  const forAge = vitalsForAge(ageFrom(members.find((m) => m.id === vital.memberId)?.dob ?? null)).map((v) => v.type);
+  const typeOptions = forAge.includes(vital.type) ? forAge : [...forAge, vital.type];
   const [date, time] = vital.measuredAt.split('T');
   const value = parseNumber(valueText);
   const value2 = vital.type === 'bp' ? parseNumber(value2Text) : null;
@@ -64,11 +68,11 @@ export default function AddVitalScreen() {
 
   async function save() {
     if (!vital) return;
-    if (!vital.memberId) return Alert.alert('Choose a family member', 'Select whose reading this is.');
+    if (!vital.memberId) return Alert.alert(t('Choose a family member'), t('Select whose reading this is.'));
     const problem = checkVital(vital.type, value, value2);
-    if (problem) return Alert.alert('Check the reading', problem);
-    if (!isValidDate(date)) return Alert.alert('Check the date', 'Enter it as DD/MM/YYYY.');
-    if (date > todayIso()) return Alert.alert('Check the date', 'The reading can’t be in the future.');
+    if (problem) return Alert.alert(t('Check the reading'), problem);
+    if (!isValidDate(date)) return Alert.alert(t('Check the date'), t('Enter it as DD/MM/YYYY.'));
+    if (date > todayIso()) return Alert.alert(t('Check the date'), t('The reading can’t be in the future.'));
     setSaving(true);
     try {
       await upsertVital(db, {
@@ -81,23 +85,23 @@ export default function AddVitalScreen() {
       });
       router.back();
     } catch (e) {
-      showError('Could not save reading', e);
+      showError(t('Could not save reading'), e);
       setSaving(false);
     }
   }
 
   function confirmDelete() {
-    Alert.alert('Delete this reading?', undefined, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('Delete this reading?'), undefined, [
+      { text: t('Cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('Delete'),
         style: 'destructive',
         onPress: async () => {
           try {
             await deleteVital(db, vital!.id);
             router.back();
           } catch (e) {
-            showError('Could not delete', e);
+            showError(t('Could not delete'), e);
           }
         },
       },
@@ -113,7 +117,7 @@ export default function AddVitalScreen() {
         keyboardType="decimal-pad"
         autoFocus={autoFocus}
         placeholder="—"
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={colors.placeholder}
         accessibilityLabel={label}
         style={[styles.input, { marginTop: 4, fontSize: 22, fontWeight: '700', textAlign: 'center' }]}
       />
@@ -129,7 +133,7 @@ export default function AddVitalScreen() {
         contentContainerStyle={[styles.content, { gap: 16, paddingBottom: insets.bottom + 24 }]}>
         {members.length > 1 ? (
           <ChipSelect
-            label="Family member"
+            label={t('Family member')}
             options={members.map((m) => m.id)}
             value={vital.memberId || null}
             onChange={(v) => set('memberId', v ?? '')}
@@ -137,8 +141,8 @@ export default function AddVitalScreen() {
           />
         ) : null}
         <ChipSelect
-          label="What did you measure?"
-          options={VITALS.map((v) => v.type)}
+          label={t('What did you measure?')}
+          options={typeOptions}
           value={vital.type}
           onChange={(t) => {
             if (!t) return;
@@ -162,37 +166,37 @@ export default function AddVitalScreen() {
         </View>
         {vital.type === 'sugar' ? (
           <ChipSelect
-            label="When was it taken?"
+            label={t('When was it taken?')}
             options={SUGAR_CONTEXTS.map((c) => c.key)}
             value={vital.context}
             onChange={(c) => set('context', c ?? 'random')}
             renderLabel={(c) => SUGAR_CONTEXTS.find((x) => x.key === c)?.label ?? c}
           />
         ) : null}
-        <Text style={[styles.hint, preview === 'above' || preview === 'below' ? { color: '#9A3412', fontWeight: '600' } : null]}>
+        <Text style={[styles.hint, preview === 'above' || preview === 'below' ? { color: colors.warnText, fontWeight: '600' } : null]}>
           {preview === 'above'
-            ? 'Above the typical range. '
+            ? t('Above the typical range. ')
             : preview === 'below'
-              ? 'Below the typical range. '
+              ? t('Below the typical range. ')
               : preview === 'in'
-                ? 'In the typical range. '
+                ? t('In the typical range. ')
                 : ''}
           {rangeText(vital.type, vital.context)}
         </Text>
 
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-end' }}>
           <View style={{ flex: 1 }}>
-            <DateField label="Date" value={date} onChange={(d) => set('measuredAt', `${d ?? ''}T${time}`)} allowFuture={false} />
+            <DateField label={t('Date')} value={date} onChange={(d) => set('measuredAt', `${d ?? ''}T${time}`)} allowFuture={false} />
           </View>
           <View style={{ paddingBottom: 6 }}>
             <AddTimeButton initial={time} label={formatTime(time)} onPick={(t) => set('measuredAt', `${date}T${t}`)} />
           </View>
         </View>
 
-        <Field label="Notes" value={vital.notes} onChangeText={(t) => set('notes', t)} placeholder="e.g. after walk, felt dizzy, home monitor" multiline />
+        <Field label={t('Notes')} value={vital.notes} onChangeText={(t) => set('notes', t)} placeholder={t('e.g. after walk, felt dizzy, home monitor')} multiline />
 
-        <Button title={params.id ? 'Save changes' : 'Save reading'} icon="checkmark" onPress={save} loading={saving} />
-        {params.id ? <Button title="Delete reading" icon="trash-outline" variant="danger" onPress={confirmDelete} /> : null}
+        <Button title={params.id ? t('Save changes') : t('Save reading')} icon="checkmark" onPress={save} loading={saving} />
+        {params.id ? <Button title={t('Delete reading')} icon="trash-outline" variant="danger" onPress={confirmDelete} /> : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

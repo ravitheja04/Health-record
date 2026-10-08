@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import type { TextItem } from '@/lib/extract/layout';
+import { t } from '@/i18n';
 
 /**
  * Reads the text of a PDF on the phone, with no internet: pdf.js runs inside a
@@ -149,7 +150,7 @@ export function usePdfReader(): {
     pending.current.delete(msg.id);
     clearTimeout(job.timer);
     if (msg.type === 'result' || msg.type === 'images') job.resolve({ items: msg.items, pages: msg.pages });
-    else job.reject(new PdfReadError(msg.code ?? 'unreadable', msg.message ?? 'Could not read this PDF.'));
+    else job.reject(new PdfReadError(msg.code ?? 'unreadable', msg.code === 'unreadable' ? t('Could not read this PDF. It may be damaged or not a PDF.') : (msg.message ?? '')));
   }, []);
 
   const run = useCallback(async (uri: string, password: string | undefined, mode: 'text' | 'images') => {
@@ -163,7 +164,7 @@ export function usePdfReader(): {
     return new Promise<Reply>((resolve, reject) => {
       const timer = setTimeout(() => {
         pending.current.delete(id);
-        reject(new PdfReadError('timeout', 'Reading the PDF took too long.'));
+        reject(new PdfReadError('timeout', t('Reading the PDF took too long.')));
       }, mode === 'images' ? 120_000 : 60_000);
       pending.current.set(id, { resolve, reject, timer });
       webview.current?.injectJavaScript(

@@ -1,5 +1,6 @@
 import { getTestDef, PANELS, panelOf, type PanelKey } from './labTests';
 import type { LabResult } from './types';
+import { t } from '../i18n';
 
 /** A result together with the date of the report it came from. */
 export type LabPoint = LabResult & { date: string; recordTitle: string };
@@ -89,9 +90,7 @@ export function buildSeries(points: LabPoint[]): TestSeries[] {
     });
   }
   const panelOrder = new Map(PANELS.map((p, i) => [p.key, i]));
-  return series.sort(
-    (a, b) => (panelOrder.get(a.panel) ?? 99) - (panelOrder.get(b.panel) ?? 99) || a.testName.localeCompare(b.testName)
-  );
+  return series.sort((a, b) => (panelOrder.get(a.panel) ?? 99) - (panelOrder.get(b.panel) ?? 99) || a.testName.localeCompare(b.testName));
 }
 
 export type LabSummary = {
@@ -151,8 +150,8 @@ export function formatValue(value: number) {
 export function formatRange(refLow: number | null, refHigh: number | null, unit = '') {
   const u = unit ? ` ${unit}` : '';
   if (refLow !== null && refHigh !== null) return `${formatValue(refLow)}–${formatValue(refHigh)}${u}`;
-  if (refHigh !== null) return `below ${formatValue(refHigh)}${u}`;
-  if (refLow !== null) return `above ${formatValue(refLow)}${u}`;
+  if (refHigh !== null) return t('below {value}', { value: `${formatValue(refHigh)}${u}` });
+  if (refLow !== null) return t('above {value}', { value: `${formatValue(refLow)}${u}` });
   return '';
 }
 

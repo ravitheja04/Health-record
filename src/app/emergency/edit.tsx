@@ -10,6 +10,7 @@ import { getEmergencyInfo, upsertEmergencyInfo } from '@/lib/emergency';
 import { cardContacts, dialable, emptyEmergencyInfo } from '@/lib/emergencyText';
 import { showError } from '@/lib/useQuery';
 import type { EmergencyContact, EmergencyInfo, Member } from '@/lib/types';
+import { t } from '@/i18n';
 
 const MAX_CONTACTS = 3;
 
@@ -30,7 +31,7 @@ export default function EditEmergencyScreen() {
       // Start from the member's old free-text contact so nothing has to be retyped.
       const contacts = cardContacts(m, existing);
       setInfo({ ...base, contacts: contacts.length ? contacts : [{ name: '', relation: '', phone: '' }] });
-    })().catch((e) => showError('Could not load emergency card', e));
+    })().catch((e) => showError(t('Could not load emergency card'), e));
   }, [db, memberId]);
 
   if (!member || !info) return null;
@@ -44,9 +45,9 @@ export default function EditEmergencyScreen() {
       .map((c) => ({ name: c.name.trim(), relation: c.relation.trim(), phone: c.phone.trim() }))
       .filter((c) => c.name || c.phone);
     const bad = contacts.find((c) => c.phone && !dialable(c.phone));
-    if (bad) return Alert.alert('Check the phone number', `“${bad.phone}” for ${bad.name || 'a contact'} doesn’t look like a phone number.`);
+    if (bad) return Alert.alert(t('Check the phone number'), t('“{phone}” for {name} doesn’t look like a phone number.', { phone: bad.phone, name: bad.name || t('a contact') }));
     if (info.doctorPhone.trim() && !dialable(info.doctorPhone)) {
-      return Alert.alert('Check the phone number', 'The doctor’s phone number doesn’t look right.');
+      return Alert.alert(t('Check the phone number'), t('The doctor’s phone number doesn’t look right.'));
     }
     setSaving(true);
     try {
@@ -62,14 +63,14 @@ export default function EditEmergencyScreen() {
       });
       router.back();
     } catch (e) {
-      showError('Could not save', e);
+      showError(t('Could not save'), e);
       setSaving(false);
     }
   }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Stack.Screen options={{ title: `${member.name.split(' ')[0]}’s emergency card` }} />
+      <Stack.Screen options={{ title: t('{name}’s emergency card', { name: member.name.split(' ')[0] }) }} />
       <ScrollView
         style={styles.screen}
         keyboardShouldPersistTaps="handled"
@@ -78,35 +79,35 @@ export default function EditEmergencyScreen() {
           <View style={styles.row}>
             <Icon name="medical-outline" color="#B91C1C" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Blood group, allergies, conditions</Text>
-              <Text style={styles.subtitle}>These come from {member.name.split(' ')[0]}’s profile. Tap to edit them.</Text>
+              <Text style={styles.title}>{t('Blood group, allergies, conditions')}</Text>
+              <Text style={styles.subtitle}>{t('These come from {name}’s profile. Tap to edit them.', { name: member.name.split(' ')[0] })}</Text>
             </View>
             <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
           </View>
         </Card>
 
-        <SectionTitle>Who to call</SectionTitle>
+        <SectionTitle>{t('Who to call')}</SectionTitle>
         {info.contacts.map((c, i) => (
           <Card key={i} style={{ gap: 10 }}>
             <View style={[styles.row, { gap: 8 }]}>
-              <Text style={[styles.label, { flex: 1 }]}>Contact {i + 1}</Text>
+              <Text style={[styles.label, { flex: 1 }]}>{t('Contact')}{' '}{i + 1}</Text>
               {info.contacts.length > 1 ? (
                 <Pressable
-                  accessibilityLabel={`Remove contact ${i + 1}`}
+                  accessibilityLabel={t('Remove contact {n}', { n: i + 1 })}
                   hitSlop={10}
                   onPress={() => set('contacts', info.contacts.filter((_, j) => j !== i))}>
                   <Icon name="close-outline" color={colors.muted} size={22} />
                 </Pressable>
               ) : null}
             </View>
-            <Field label="Name" value={c.name} onChangeText={(t) => setContact(i, { name: t })} placeholder="e.g. Ravi" />
+            <Field label={t('Name')} value={c.name} onChangeText={(t) => setContact(i, { name: t })} placeholder={t('e.g. Ravi')} />
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
-                <Field label="Relation" value={c.relation} onChangeText={(t) => setContact(i, { relation: t })} placeholder="e.g. Son" />
+                <Field label={t('Relation')} value={c.relation} onChangeText={(t) => setContact(i, { relation: t })} placeholder={t('e.g. Son')} />
               </View>
               <View style={{ flex: 1.4 }}>
                 <Field
-                  label="Phone"
+                  label={t('Phone')}
                   value={c.phone}
                   onChangeText={(t) => setContact(i, { phone: t })}
                   placeholder="+91 98765 43210"
@@ -118,40 +119,40 @@ export default function EditEmergencyScreen() {
         ))}
         {info.contacts.length < MAX_CONTACTS ? (
           <Button
-            title="Add another contact"
+            title={t('Add another contact')}
             icon="person-add-outline"
             variant="secondary"
             onPress={() => set('contacts', [...info.contacts, { name: '', relation: '', phone: '' }])}
           />
         ) : null}
 
-        <SectionTitle>Doctor & insurance</SectionTitle>
+        <SectionTitle>{t('Doctor & insurance')}</SectionTitle>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field label="Family doctor" value={info.doctorName} onChangeText={(t) => set('doctorName', t)} placeholder="Dr. name" />
+            <Field label={t('Family doctor')} value={info.doctorName} onChangeText={(t) => set('doctorName', t)} placeholder={t('Dr. name')} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Doctor’s phone" value={info.doctorPhone} onChangeText={(t) => set('doctorPhone', t)} keyboardType="phone-pad" />
+            <Field label={t('Doctor’s phone')} value={info.doctorPhone} onChangeText={(t) => set('doctorPhone', t)} keyboardType="phone-pad" />
           </View>
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Field label="Health insurance" value={info.insurer} onChangeText={(t) => set('insurer', t)} placeholder="Insurer / TPA" />
+            <Field label={t('Health insurance')} value={info.insurer} onChangeText={(t) => set('insurer', t)} placeholder={t('Insurer / TPA')} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Policy number" value={info.policyNumber} onChangeText={(t) => set('policyNumber', t)} autoCapitalize="characters" />
+            <Field label={t('Policy number')} value={info.policyNumber} onChangeText={(t) => set('policyNumber', t)} autoCapitalize="characters" />
           </View>
         </View>
 
         <Field
-          label="Notes for responders"
+          label={t('Notes for responders')}
           value={info.notes}
           onChangeText={(t) => set('notes', t)}
-          placeholder="e.g. Has a pacemaker; diabetic, carries glucose tablets; hearing impaired"
+          placeholder={t('e.g. Has a pacemaker; diabetic, carries glucose tablets; hearing impaired')}
           multiline
         />
 
-        <Button title="Save emergency card" icon="checkmark" onPress={save} loading={saving} />
+        <Button title={t('Save emergency card')} icon="checkmark" onPress={save} loading={saving} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

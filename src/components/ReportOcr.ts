@@ -1,5 +1,6 @@
 import type { TextItem } from '@/lib/extract/layout';
 import { ocrToItems, type OcrResult } from '@/lib/extract/ocr';
+import { t } from '@/i18n';
 
 /**
  * Reads text from photos (or scanned PDF pages) on the phone with Google ML
@@ -15,7 +16,7 @@ let mlkit: Promise<MlKit> | null = null;
 function loadMlKit() {
   mlkit ??= import('@infinitered/react-native-mlkit-text-recognition').catch(() => {
     mlkit = null;
-    throw new OcrUnavailableError('Reading photos needs the installed app; it does not work in Expo Go.');
+    throw new OcrUnavailableError(t('Reading photos needs the installed app; it does not work in Expo Go.'));
   });
   return mlkit;
 }

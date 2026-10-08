@@ -13,6 +13,7 @@ import { showError } from '@/lib/useQuery';
 import { COMMON_VACCINES } from '@/lib/vaccineSchedules';
 import { deleteVaccination, ensureCertificateRecord, getVaccination, upsertVaccination } from '@/lib/vaccines';
 import type { Vaccination } from '@/lib/types';
+import { t } from '@/i18n';
 
 const DOSE_CHOICES = ['Dose 1', 'Dose 2', 'Dose 3', 'Booster', 'Yearly'];
 
@@ -60,7 +61,7 @@ export default function EditVaccinationScreen() {
     (async () => {
       const existing = params.id ? await getVaccination(db, params.id) : null;
       setV(existing ?? blank(params.memberId ?? ''));
-    })().catch((e) => showError('Could not load vaccination', e));
+    })().catch((e) => showError(t('Could not load vaccination'), e));
   }, [db, params.id, params.memberId]);
 
   if (!v) return null;
@@ -69,19 +70,19 @@ export default function EditVaccinationScreen() {
   function validate(): Vaccination | null {
     if (!v) return null;
     if (!v.name.trim()) {
-      Alert.alert('Vaccine name required', 'Enter the vaccine, e.g. MMR or Influenza.');
+      Alert.alert(t('Vaccine name required'), t('Enter the vaccine, e.g. MMR or Influenza.'));
       return null;
     }
     if (v.dueDate !== null && !isValidDate(v.dueDate)) {
-      Alert.alert('Check the due date', 'Enter it as DD/MM/YYYY, or clear it.');
+      Alert.alert(t('Check the due date'), t('Enter it as DD/MM/YYYY, or clear it.'));
       return null;
     }
     if (v.givenDate !== null && !isValidDate(v.givenDate)) {
-      Alert.alert('Check the date given', 'Enter it as DD/MM/YYYY, or clear it.');
+      Alert.alert(t('Check the date given'), t('Enter it as DD/MM/YYYY, or clear it.'));
       return null;
     }
     if (v.givenDate !== null && v.givenDate > todayIso()) {
-      Alert.alert('Check the date given', 'The date given can’t be in the future. Use the due date for planned doses.');
+      Alert.alert(t('Check the date given'), t('The date given can’t be in the future. Use the due date for planned doses.'));
       return null;
     }
     return { ...v, name: v.name.trim(), dose: v.dose.trim(), facility: v.facility.trim(), updatedAt: new Date().toISOString() };
@@ -97,7 +98,7 @@ export default function EditVaccinationScreen() {
       syncRemindersQuietly(db);
       router.back();
     } catch (e) {
-      showError('Could not save', e);
+      showError(t('Could not save'), e);
       setSaving(false);
     }
   }
@@ -111,15 +112,15 @@ export default function EditVaccinationScreen() {
       syncRemindersQuietly(db);
       router.replace({ pathname: '/record/edit', params: { id: recordId } });
     } catch (e) {
-      showError('Could not open certificate', e);
+      showError(t('Could not open certificate'), e);
     }
   }
 
   function confirmDelete() {
-    Alert.alert('Delete this vaccination?', 'A linked certificate record stays in the medical records.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('Delete this vaccination?'), t('A linked certificate record stays in the medical records.'), [
+      { text: t('Cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('Delete'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -127,7 +128,7 @@ export default function EditVaccinationScreen() {
             syncRemindersQuietly(db);
             router.back();
           } catch (e) {
-            showError('Could not delete', e);
+            showError(t('Could not delete'), e);
           }
         },
       },
@@ -142,50 +143,50 @@ export default function EditVaccinationScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, { gap: 16, paddingBottom: insets.bottom + 24 }]}>
         <View style={{ gap: 8 }}>
-          <Field label="Vaccine *" value={v.name} onChangeText={(t) => set('name', t)} placeholder="e.g. Influenza, MMR, Hepatitis B" />
+          <Field label={t('Vaccine *')} value={v.name} onChangeText={(t) => set('name', t)} placeholder={t('e.g. Influenza, MMR, Hepatitis B')} />
           <QuickChips options={COMMON_VACCINES} value={v.name} onPick={(t) => set('name', t)} />
         </View>
         <View style={{ gap: 8 }}>
-          <Field label="Dose" value={v.dose} onChangeText={(t) => set('dose', t)} placeholder="e.g. Dose 2, Booster" />
+          <Field label={t('Dose')} value={v.dose} onChangeText={(t) => set('dose', t)} placeholder={t('e.g. Dose 2, Booster')} />
           <QuickChips options={DOSE_CHOICES} value={v.dose} onPick={(t) => set('dose', t)} />
         </View>
         <DateField
-          label="Due date"
+          label={t('Due date')}
           value={v.dueDate}
           onChange={(d) => set('dueDate', d)}
-          hint="When this dose should be given. You’ll get a reminder a week before and on the day."
+          hint={t('When this dose should be given. You’ll get a reminder a week before and on the day.')}
         />
         <View style={{ gap: 8 }}>
-          <DateField label="Date given" value={v.givenDate} onChange={(d) => set('givenDate', d)} allowFuture={false} />
+          <DateField label={t('Date given')} value={v.givenDate} onChange={(d) => set('givenDate', d)} allowFuture={false} />
           {!v.givenDate ? (
             <Pressable onPress={() => set('givenDate', todayIso())} style={[styles.chip, { alignSelf: 'flex-start' }]}>
-              <Text style={styles.chipText}>Given today</Text>
+              <Text style={styles.chipText}>{t('Given today')}</Text>
             </Pressable>
           ) : null}
         </View>
-        <Field label="Hospital / clinic" value={v.facility} onChangeText={(t) => set('facility', t)} placeholder="Where it was given" />
-        <Field label="Notes" value={v.notes} onChangeText={(t) => set('notes', t)} placeholder="Brand, batch number, reactions…" multiline />
+        <Field label={t('Hospital / clinic')} value={v.facility} onChangeText={(t) => set('facility', t)} placeholder={t('Where it was given')} />
+        <Field label={t('Notes')} value={v.notes} onChangeText={(t) => set('notes', t)} placeholder={t('Brand, batch number, reactions…')} multiline />
 
         <Card style={{ gap: 8 }}>
           <View style={styles.row}>
             <Icon name="document-attach-outline" color={colors.primary} />
-            <Text style={[styles.title, { flex: 1 }]}>Vaccination certificate</Text>
+            <Text style={[styles.title, { flex: 1 }]}>{t('Vaccination certificate')}</Text>
           </View>
           <Text style={styles.subtitle}>
             {v.recordId
-              ? 'Linked to a medical record. Open it to add or view photos and PDFs.'
-              : 'Keep a photo of the vaccination card or the certificate PDF with this dose.'}
+              ? t('Linked to a medical record. Open it to add or view photos and PDFs.')
+              : t('Keep a photo of the vaccination card or the certificate PDF with this dose.')}
           </Text>
           <Button
-            title={v.recordId ? 'Open certificate record' : 'Add certificate'}
+            title={v.recordId ? t('Open certificate record') : t('Add certificate')}
             icon={v.recordId ? 'open-outline' : 'camera-outline'}
             variant="secondary"
             onPress={certificate}
           />
         </Card>
 
-        <Button title={params.id ? 'Save changes' : 'Add vaccination'} icon="checkmark" onPress={save} loading={saving} />
-        {params.id ? <Button title="Delete" icon="trash-outline" variant="danger" onPress={confirmDelete} /> : null}
+        <Button title={params.id ? t('Save changes') : t('Add vaccination')} icon="checkmark" onPress={save} loading={saving} />
+        {params.id ? <Button title={t('Delete')} icon="trash-outline" variant="danger" onPress={confirmDelete} /> : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

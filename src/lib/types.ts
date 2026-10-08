@@ -1,3 +1,5 @@
+import { t } from '../i18n';
+
 export type Member = {
   id: string;
   name: string;
@@ -15,15 +17,7 @@ export type Member = {
   updatedAt: string;
 };
 
-export type RecordType =
-  | 'lab'
-  | 'prescription'
-  | 'visit'
-  | 'vaccination'
-  | 'imaging'
-  | 'procedure'
-  | 'insurance'
-  | 'other';
+export type RecordType = 'lab' | 'prescription' | 'visit' | 'vaccination' | 'imaging' | 'procedure' | 'insurance' | 'other';
 
 export type MedicalRecord = {
   id: string;
@@ -144,7 +138,7 @@ export type EmergencyInfo = {
   updatedAt: string;
 };
 
-export type VitalType = 'bp' | 'sugar' | 'weight' | 'pulse' | 'spo2' | 'temp';
+export type VitalType = 'bp' | 'sugar' | 'weight' | 'pulse' | 'spo2' | 'temp' | 'height' | 'head';
 
 export type Vital = {
   id: string;
@@ -164,14 +158,62 @@ export type Vital = {
 };
 
 export const RECORD_TYPES: Record<RecordType, { label: string; icon: string; color: string }> = {
-  lab: { label: 'Lab report', icon: 'flask-outline', color: '#7C3AED' },
-  prescription: { label: 'Prescription', icon: 'medkit-outline', color: '#DB2777' },
-  visit: { label: 'Doctor visit', icon: 'pulse-outline', color: '#2563EB' },
-  vaccination: { label: 'Vaccination', icon: 'shield-checkmark-outline', color: '#059669' },
-  imaging: { label: 'Scan / Imaging', icon: 'scan-outline', color: '#0891B2' },
-  procedure: { label: 'Surgery / Procedure', icon: 'cut-outline', color: '#DC2626' },
-  insurance: { label: 'Insurance', icon: 'document-text-outline', color: '#CA8A04' },
-  other: { label: 'Other', icon: 'folder-outline', color: '#64748B' },
+  lab: {
+    get label() {
+      return t('Lab report');
+    },
+    icon: 'flask-outline',
+    color: '#7C3AED',
+  },
+  prescription: {
+    get label() {
+      return t('Prescription');
+    },
+    icon: 'medkit-outline',
+    color: '#DB2777',
+  },
+  visit: {
+    get label() {
+      return t('Doctor visit');
+    },
+    icon: 'pulse-outline',
+    color: '#2563EB',
+  },
+  vaccination: {
+    get label() {
+      return t('Vaccination');
+    },
+    icon: 'shield-checkmark-outline',
+    color: '#059669',
+  },
+  imaging: {
+    get label() {
+      return t('Scan / Imaging');
+    },
+    icon: 'scan-outline',
+    color: '#0891B2',
+  },
+  procedure: {
+    get label() {
+      return t('Surgery / Procedure');
+    },
+    icon: 'cut-outline',
+    color: '#DC2626',
+  },
+  insurance: {
+    get label() {
+      return t('Insurance');
+    },
+    icon: 'document-text-outline',
+    color: '#CA8A04',
+  },
+  other: {
+    get label() {
+      return t('Other');
+    },
+    icon: 'folder-outline',
+    color: '#64748B',
+  },
 };
 
 export const RELATIONS = ['Self', 'Spouse', 'Child', 'Parent', 'Sibling', 'Grandparent', 'Other'];

@@ -12,6 +12,7 @@ import { useQuery } from '@/lib/useQuery';
 import { formatVital, measuredMs, rangeText, SUGAR_CONTEXTS, typicalRange, vitalDef, VITALS, vitalStatus, whenText } from '@/lib/vitalsAnalysis';
 import { listVitals } from '@/lib/vitals';
 import type { VitalType } from '@/lib/types';
+import { t } from '@/i18n';
 
 const RANGES = [
   { key: '30d', label: '30 days', days: 30 },
@@ -43,8 +44,8 @@ export default function VitalDetailScreen() {
     return (
       <>
         <Stack.Screen options={{ title }} />
-        <EmptyState icon={def.icon} title="No readings yet" message={`Log ${def.label.toLowerCase()} readings to see the trend over time.`}>
-          <Button title="Log a reading" icon="add-outline" onPress={add} />
+        <EmptyState icon={def.icon} title={t('No readings yet')} message={t('Log {what} readings to see the trend over time.', { what: def.label.toLowerCase() })}>
+          <Button title={t('Log a reading')} icon="add-outline" onPress={add} />
         </EmptyState>
       </>
     );
@@ -66,7 +67,7 @@ export default function VitalDetailScreen() {
         options={{
           title,
           headerRight: () => (
-            <Pressable accessibilityLabel="Log a reading" hitSlop={8} onPress={add}>
+            <Pressable accessibilityLabel={t('Log a reading')} hitSlop={8} onPress={add}>
               <Icon name="add-outline" size={26} color={colors.primary} />
             </Pressable>
           ),
@@ -101,15 +102,15 @@ export default function VitalDetailScreen() {
               })}
             </View>
           ) : null}
-          <View role="tablist" style={{ flexDirection: 'row', gap: 4, backgroundColor: '#F1F5F9', borderRadius: 10, padding: 3, marginTop: 6 }}>
+          <View role="tablist" style={{ flexDirection: 'row', gap: 4, backgroundColor: colors.subtle, borderRadius: 10, padding: 3, marginTop: 6 }}>
             {RANGES.map((r) => (
               <Pressable
                 key={r.key}
                 role="tab"
                 accessibilityState={{ selected: r.key === range }}
                 onPress={() => setRange(r.key)}
-                style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, backgroundColor: r.key === range ? '#FFFFFF' : 'transparent' }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: r.key === range ? colors.text : colors.muted }}>{r.label}</Text>
+                style={{ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, backgroundColor: r.key === range ? colors.card : 'transparent' }}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: r.key === range ? colors.text : colors.muted }}>{t(r.label)}</Text>
               </Pressable>
             ))}
           </View>
@@ -130,20 +131,20 @@ export default function VitalDetailScreen() {
               />
               {type === 'bp' ? (
                 <View style={{ flexDirection: 'row', gap: 14, marginTop: 4 }}>
-                  <Text style={{ fontSize: 12, color: def.color, fontWeight: '600' }}>● Top (systolic)</Text>
-                  <Text style={{ fontSize: 12, color: '#EA580C', fontWeight: '600' }}>● Bottom (diastolic)</Text>
+                  <Text style={{ fontSize: 12, color: def.color, fontWeight: '600' }}>{t('● Top (systolic)')}</Text>
+                  <Text style={{ fontSize: 12, color: '#EA580C', fontWeight: '600' }}>{t('● Bottom (diastolic)')}</Text>
                   <Text style={{ fontSize: 12, color: colors.muted }}>- - 120 / 80</Text>
                 </View>
               ) : null}
             </View>
           ) : (
             <Text style={[styles.subtitle, { marginTop: 8 }]}>
-              {points.length ? 'Log another reading to see a trend chart.' : 'No readings in this period.'}
+              {points.length ? t('Log another reading to see a trend chart.') : t('No readings in this period.')}
             </Text>
           )}
         </Card>
 
-        <SectionTitle>All readings ({readings.length})</SectionTitle>
+        <SectionTitle>{t('All readings ({n})', { n: readings.length })}</SectionTitle>
         <Card style={{ padding: 0, overflow: 'hidden' }}>
           {[...readings].reverse().map((r, i) => {
             const s = vitalStatus(r);
@@ -153,7 +154,7 @@ export default function VitalDetailScreen() {
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: '/vitals/add', params: { id: r.id } })}
                 style={({ pressed }) => [
-                  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: '#F1F5F9' },
+                  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: colors.subtle },
                   pressed && styles.pressed,
                 ]}>
                 <View style={{ flex: 1 }}>
@@ -172,7 +173,7 @@ export default function VitalDetailScreen() {
           })}
         </Card>
         <Text style={[styles.subtitle, { lineHeight: 18 }]}>
-          Typical ranges are general adult guides, not targets. Talk to your doctor about what is right for you.
+          {t('Typical ranges are general adult guides, not targets. Talk to your doctor about what is right for you.')}
         </Text>
       </ScrollView>
     </>
