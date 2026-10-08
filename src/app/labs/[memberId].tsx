@@ -100,6 +100,7 @@ export default function LabTrendsScreen() {
             <Stat value={summary.outOfRange} label={t('out of range')} color={labColors.outText} bg={colors.warnBg} />
             <Stat value={summary.movedToward} label={t('moved toward range')} color={colors.infoText} bg={colors.infoBg} />
           </View>
+          <Button title={t('Smart report')} icon="document-text-outline" onPress={() => router.push({ pathname: '/labs/report', params: { memberId } })} />
           {summary.reportCount > 1 ? (
             <Button
               title={t('Compare two reports')}

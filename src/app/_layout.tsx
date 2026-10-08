@@ -132,6 +132,7 @@ export default function RootLayout() {
             <Stack.Screen name="labs/[memberId]" options={{ title: t('Lab trends') }} />
             <Stack.Screen name="labs/test" options={{ title: '' }} />
             <Stack.Screen name="labs/compare" options={{ title: t('Compare reports') }} />
+            <Stack.Screen name="labs/report" options={{ title: t('Smart report') }} />
             <Stack.Screen name="medicines/edit" options={{ title: t('Medicine'), presentation: 'modal' }} />
             <Stack.Screen name="vaccines/[memberId]" options={{ title: t('Vaccinations') }} />
             <Stack.Screen name="vaccines/edit" options={{ title: t('Vaccination'), presentation: 'modal' }} />

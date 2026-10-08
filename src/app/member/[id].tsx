@@ -243,6 +243,18 @@ export default function MemberScreen() {
             <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
           </View>
         </Card>
+        {data.labTests > 0 ? (
+          <Card onPress={() => router.push({ pathname: '/labs/report', params: { memberId: id } })}>
+            <View style={styles.row}>
+              <Icon name="document-text-outline" color="#0D9488" size={24} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>{t('Smart report')}</Text>
+                <Text style={styles.subtitle}>{t('All tests from the first report to the latest, by body system')}</Text>
+              </View>
+              <Icon name="chevron-forward-outline" size={18} color={colors.muted} />
+            </View>
+          </Card>
+        ) : null}
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Button style={{ flex: 1 }} variant="secondary" title={t('Share PDF')} icon="document-outline" loading={busy === 'pdf'} onPress={() => run('pdf')} />
           <Button style={{ flex: 1 }} variant="secondary" title={t('Send to family')} icon="share-social-outline" loading={busy === 'file'} onPress={() => run('file')} />

@@ -6,10 +6,12 @@ import * as DB from './db';
 import * as Emergency from './emergency';
 import { cardContacts, emergencyText } from './emergencyText';
 import { qrSvgMarkup } from './qr';
-import { buildSeries, formatRange, formatValue, statusOf } from './labAnalysis';
+import { buildSeries, formatDelta, formatRange, formatValue, statusOf } from './labAnalysis';
 import * as Labs from './labs';
 import { isCurrent, scheduleText } from './medSchedule';
 import * as Meds from './meds';
+import type { PanelKey } from './labTests';
+import { aboutTest, buildSmartReport, cellStatus } from './smartReport';
 import { sortVaccinations, vaccineStatus } from './vaccineAnalysis';
 import * as Vax from './vaccines';
 import { checkVital, VITALS } from './vitalsAnalysis';
@@ -564,6 +566,91 @@ export async function shareMemberSummaryPdf(db: SQLiteDatabase, memberId: string
   </body></html>`;
 
   await printAndShare(html, `${m.name}-health-summary`);
+}
+
+/** PDFs are for doctors and stay in English whatever the app language. */
+const PANEL_NAMES: Record<PanelKey, string> = {
+  diabetes: 'Diabetes',
+  lipid: 'Lipid profile',
+  thyroid: 'Thyroid',
+  kidney: 'Kidney',
+  liver: 'Liver',
+  blood: 'Blood count',
+  vitamins: 'Vitamins & minerals',
+  other: 'Other tests',
+};
+
+/** Columns of past reports that fit across a portrait page next to the test name and range. */
+const SMART_PDF_COLUMNS = 6;
+
+export async function shareSmartReportPdf(db: SQLiteDatabase, memberId: string) {
+  const m = await DB.getMember(db, memberId);
+  if (!m) throw new Error(t('Family member not found.'));
+  const report = buildSmartReport(await Labs.listMemberResults(db, memberId));
+  if (!report.testCount) throw new Error(t('No test results yet'));
+  const cols = report.columns.slice(-SMART_PDF_COLUMNS);
+  const trimmed = report.columns.length - cols.length;
+  const changeWords = { toward: 'toward range', away: 'away from range', same: 'about the same', unknown: '' };
+
+  const glance = report.panels
+    .map(
+      (p) =>
+        `<tr><td>${escapeHtml(PANEL_NAMES[p.key])}</td><td>${p.tests.length}</td><td class="${p.outOfRange ? 'high' : ''}">${p.outOfRange || '—'}</td></tr>`
+    )
+    .join('');
+
+  const panels = report.panels
+    .map((p) => {
+      const rows = p.tests
+        .map((x) => {
+          const cells = cols
+            .map((c) => {
+              const pt = x.byRecord[c.recordId];
+              if (!pt) return '<td class="muted">—</td>';
+              const st = cellStatus(pt);
+              const flag = st === 'high' ? ' ↑' : st === 'low' ? ' ↓' : '';
+              return `<td class="${flag ? 'high cellout' : ''}">${escapeHtml(formatValue(pt.value))}${flag}</td>`;
+            })
+            .join('');
+          const change = x.overall.unitChanged
+            ? 'unit changed'
+            : x.overall.delta === null
+              ? '—'
+              : `${formatDelta(x.overall.delta)}${changeWords[x.overall.kind] ? `<div class="muted">${changeWords[x.overall.kind]}</div>` : ''}`;
+          const about = aboutTest(x.testKey, true);
+          return `<tr>
+            <td><b>${escapeHtml(x.testName)}</b> <span class="muted">${escapeHtml(x.unit)}</span>${about ? `<div class="muted small">${escapeHtml(about)}</div>` : ''}</td>
+            <td>${escapeHtml(formatRange(x.latest.refLow, x.latest.refHigh)) || '<span class="muted">—</span>'}</td>
+            ${cells}
+            <td>${x.points.length > 1 ? `<span class="muted">${escapeHtml(formatValue(x.first.value))} (${escapeHtml(formatDate(x.first.date))}) →</span><br>${change}` : '—'}</td>
+          </tr>`;
+        })
+        .join('');
+      return `<h2>${escapeHtml(PANEL_NAMES[p.key])}</h2>
+        <table class="smart"><tr><th>Test</th><th>Range</th>${cols.map((c) => `<th>${escapeHtml(formatDate(c.date))}</th>`).join('')}<th>First → latest</th></tr>${rows}</table>`;
+    })
+    .join('');
+
+  const period =
+    report.columns.length > 1
+      ? `${report.columns.length} reports · ${escapeHtml(formatDate(report.firstDate))} to ${escapeHtml(formatDate(report.latestDate))}`
+      : `1 report · ${escapeHtml(formatDate(report.latestDate))}`;
+
+  const html = `<html><head><meta charset="utf-8"><style>${PDF_STYLES}
+    .smart { font-size: 11px; } .smart td, .smart th { padding: 4px 5px; }
+    .small { font-size: 10px; } .cellout { background: #FFF7ED; }
+    </style></head><body>
+    <h1>${escapeHtml(m.name)}</h1>
+    <div class="muted">Smart lab report · ${period} · generated ${escapeHtml(formatDate(todayIso()))}</div>
+    <h2>Health at a glance</h2>
+    <table><tr><th>Area</th><th>Tests</th><th>Out of range on latest report</th></tr>${glance}</table>
+    ${trimmed ? `<p class="muted">Showing the latest ${cols.length} of ${report.columns.length} reports. The last column compares the first ever result with the latest.</p>` : ''}
+    ${panels}
+    <p class="muted">↑ above / ↓ below the range printed on that report. Ranges are each lab's own; this summary is not a diagnosis.</p>
+    <footer>Family Health Registry</footer>
+  </body></html>`;
+
+  await printAndShare(html, `${m.name}-smart-lab-report`);
 }
 
 export async function shareRecordPdf(db: SQLiteDatabase, recordId: string) {
