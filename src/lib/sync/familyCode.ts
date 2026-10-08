@@ -12,6 +12,8 @@ export type FamilyCode = {
   fileId: string | null;
   /** "Ravi's phone" */
   name: string;
+  /** From the main family phone, whose Drive holds the family's data. */
+  owner: boolean;
 };
 
 const PREFIX = 'FHRJOIN1.';
@@ -20,7 +22,7 @@ const b64url = (b: Uint8Array) => toBase64(b).replace(/\+/g, '-').replace(/\//g,
 const fromB64url = (s: string) => fromBase64(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4));
 
 export function encodeFamilyCode(code: FamilyCode) {
-  const json = JSON.stringify({ k: b64url(code.key), f: code.fileId, n: code.name });
+  const json = JSON.stringify({ k: b64url(code.key), f: code.fileId, n: code.name, ...(code.owner ? { o: true } : {}) });
   return PREFIX + b64url(utf8.encode(json));
 }
 
@@ -29,12 +31,12 @@ export function decodeFamilyCode(text: string): FamilyCode | null {
   const m = /FHRJOIN1\.([A-Za-z0-9_-]+)/.exec(text);
   if (!m) return null;
   try {
-    const data = JSON.parse(utf8.decode(fromB64url(m[1]))) as { k?: unknown; f?: unknown; n?: unknown };
+    const data = JSON.parse(utf8.decode(fromB64url(m[1]))) as { k?: unknown; f?: unknown; n?: unknown; o?: unknown };
     if (typeof data.k !== 'string' || (data.f !== null && typeof data.f !== 'string') || typeof data.n !== 'string') return null;
     const key = fromB64url(data.k);
     if (key.length !== 32) return null;
     if (data.f !== null && !/^[A-Za-z0-9_-]{10,100}$/.test(data.f)) return null;
-    return { key, fileId: data.f, name: data.n.slice(0, 60) };
+    return { key, fileId: data.f, name: data.n.slice(0, 60), owner: data.o === true };
   } catch {
     return null;
   }

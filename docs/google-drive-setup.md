@@ -73,19 +73,26 @@ The next APK build (**Actions → Android APK → Run workflow**) includes them.
 
 ## 8. Using it
 
-On the first phone:
+The **main family member** (one person) keeps the whole family's records in their Google Drive. Nobody else needs to sign in to Google.
+
+On the main family member's phone:
 
 1. Open **Settings → Family sync**.
 2. Give the phone a name (e.g. "Ravi's phone").
-3. Tap **Start family sync**, then **Sign in with Google**.
-4. After the first sync the phone has a **family code** (QR code, or **Share code** for WhatsApp).
+3. Tap **Link my Google Drive** and sign in.
+4. After the first sync the phone shows the **family code** (QR code, or **Share code** for WhatsApp).
 
-On each other phone:
+On everyone else's phone:
 
-1. Open **Family sync**, name the phone, then **Scan code** (or **Paste code**) with the first phone's code.
-2. Sign in with Google too, so this phone's changes are shared as well.
-3. **Let the first phone scan this phone's code** (or send it on WhatsApp). That's how it starts reading this phone.
-4. After that, everyone finds everyone: each phone lists the family phones it knows.
+1. Open **Family sync**, name the phone, then **Scan code** (or **Paste code**) with the main member's code.
+2. That's it: the whole family's records arrive, and keep arriving, from the main member's Drive.
+
+Adding records on other phones (optional):
+
+- **Automatically**: sign in with Google on that phone too (any Google account). It shows a code; the main member scans it once in Family sync. From then on its changes reach the main member's Drive, and from there everyone.
+- **Without Google**: tap **Send my changes as a file** and send it (e.g. on WhatsApp) to the main member, who opens it in **Share & Sync → Import**.
+
+Why other phones can't write straight into the main member's Drive: the app only asks for Google's narrowest Drive permission (files the app created, in your own Drive). Writing into someone else's Drive needs full Drive access, which Google only allows for apps that pass a paid security review.
 
 Phones sync when the app opens or comes back to the front, and with **Sync now**.
 

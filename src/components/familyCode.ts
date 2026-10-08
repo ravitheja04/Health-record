@@ -31,9 +31,18 @@ export async function applyFamilyCode(db: SQLiteDatabase, text: string, deviceNa
   ) {
     return null;
   }
-  await joinWithCode(db, code, deviceName);
-  syncNow(db).catch(() => {});
-  return code.fileId
-    ? t('Added {name}. Their records will arrive in a moment. Now let them scan this phone’s code too, so they get yours.', { name: code.name })
-    : t('Joined the family. {name} only receives records, so ask another family member for their code to get records.', { name: code.name });
+  const result = await joinWithCode(db, code, deviceName);
+  if (result === 'joined' || result === 'added') syncNow(db).catch(() => {});
+  switch (result) {
+    case 'joined':
+      return t('Joined {name}’s family. The family’s records will arrive in a moment.', { name: code.name });
+    case 'added':
+      return t('Added {name}. Their changes will now reach the whole family.', { name: code.name });
+    case 'own-code':
+      return t('That’s this phone’s own code. Scan a family member’s code instead.');
+    case 'owner-not-ready':
+      return t('{name} hasn’t finished setting up yet. Ask them to tap Sync now, then share the code again.', { name: code.name });
+    case 'member-code':
+      return t('This is {name}’s code. To join, scan the code on the main family member’s phone (the one whose Google Drive keeps the family’s records).', { name: code.name });
+  }
 }

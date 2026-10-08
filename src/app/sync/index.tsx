@@ -8,12 +8,13 @@ import { applyFamilyCode } from '@/components/familyCode';
 import { QrCode } from '@/components/QrCode';
 import { Button, Card, colors, Field, Icon, SectionTitle, styles } from '@/components/ui';
 import { listMembers } from '@/lib/db';
+import { shareRegistryBundle } from '@/lib/share';
 import { formatDate } from '@/lib/format';
 import { isSyncing, leaveFamily, myFamilyCode, onSyncChange, removeFamilyPhone, startFamily, syncConfigured, syncNow } from '@/lib/sync';
 import { restoreGoogleAccount, signInWithGoogle, signOutOfGoogle, type GoogleAccount } from '@/lib/sync/google';
 import { getFamilyKey, getSyncState, saveSyncState } from '@/lib/sync/state';
 import { showError, useQuery } from '@/lib/useQuery';
-import { t, tn } from '@/i18n';
+import { t } from '@/i18n';
 
 function when(iso: string | null) {
   if (!iso) return 'never';
@@ -89,11 +90,27 @@ export default function FamilySyncScreen() {
     }
   }
 
+  /** The main family member links their Google Drive and starts the family. */
   async function start() {
     if (!deviceName.trim()) return Alert.alert(t('Name this phone'), t('Family members see this name, e.g. “Ravi’s phone”.'));
-    await startFamily(db, deviceName.trim());
-    refresh();
-    syncNow(db).catch(() => {});
+    try {
+      const acc = account ?? (await signInWithGoogle());
+      if (!acc) return;
+      setAccount(acc);
+      await startFamily(db, deviceName.trim());
+      refresh();
+      syncNow(db).catch(() => {});
+    } catch (e) {
+      showError(t('Google sign-in'), e);
+    }
+  }
+
+  async function sendAsFile() {
+    try {
+      await shareRegistryBundle(db);
+    } catch (e) {
+      showError(t('Could not share'), e);
+    }
   }
 
   async function usePasted() {
@@ -128,13 +145,13 @@ export default function FamilySyncScreen() {
     ]);
   }
 
-  const addButtons = (
+  const scanButtons = (primary: boolean) => (
     <View style={{ flexDirection: 'row', gap: 10 }}>
       <Button
         style={{ flex: 1 }}
         title={t('Scan code')}
         icon="qr-code-outline"
-        variant={joined ? 'secondary' : 'primary'}
+        variant={primary ? 'primary' : 'secondary'}
         onPress={() => router.push({ pathname: '/sync/scan', params: { deviceName: deviceName.trim() } })}
       />
       <Button style={{ flex: 1 }} title={t('Paste code')} icon="clipboard-outline" variant="secondary" onPress={() => setShowPaste((v) => !v)} />
@@ -156,6 +173,49 @@ export default function FamilySyncScreen() {
     </Card>
   ) : null;
 
+  const owner = state.role === 'member' ? (state.peers[0] ?? null) : null;
+  const statusCard = (
+    <Card style={{ gap: 6 }}>
+      <View style={styles.row}>
+        <Icon name={state.lastError ? 'warning-outline' : 'cloud-done-outline'} color={state.lastError ? colors.warnStrong : colors.okText} size={24} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>{syncing ? t('Syncing…') : t('Last synced {when}', { when: when(state.lastSyncAt) })}</Text>
+          <Text style={styles.subtitle}>
+            {state.role === 'owner'
+              ? account
+                ? t('Family records are kept in your Google Drive ({email})', { email: account.email })
+                : t('Your Google Drive isn’t linked on this phone')
+              : t('Family records come from {name}’s Google Drive', { name: owner?.name ?? t('the main family member') })}
+          </Text>
+        </View>
+        {syncing ? <ActivityIndicator color={colors.primary} /> : null}
+      </View>
+      {state.lastError ? <Text style={{ color: colors.warnText }}>{state.lastError}</Text> : null}
+      <Button title={t('Sync now')} icon="sync-outline" variant="secondary" disabled={syncing} onPress={runNow} />
+    </Card>
+  );
+  const codeCard = (title: string, note: string) =>
+    code ? (
+      <Card style={{ gap: 10, alignItems: 'center' }}>
+        <Text style={[styles.title, { alignSelf: 'stretch' }]}>{title}</Text>
+        <QrCode text={code} size={200} label={t('Family sync code')} />
+        <Text style={[styles.subtitle, { textAlign: 'center', lineHeight: 19 }]}>{note}</Text>
+        <Button
+          style={{ alignSelf: 'stretch' }}
+          title={t('Share code')}
+          icon="share-outline"
+          variant="secondary"
+          onPress={() => Share.share({ message: `${t('Family Health Registry, family sync code. Paste it in Family sync:')}\n\n${code}` })}
+        />
+      </Card>
+    ) : null;
+  const leaveButton = <Button title={t('Stop family sync on this phone')} icon="close-circle-outline" variant="danger" onPress={leave} />;
+  const deleteNote = (
+    <Text style={[styles.hint, { lineHeight: 18 }]}>
+      {t('Deleting something on one phone doesn’t delete it on the others yet. Edits sync; the newest edit wins.')}
+    </Text>
+  );
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen options={{ title: t('Family sync') }} />
@@ -164,91 +224,47 @@ export default function FamilySyncScreen() {
           <>
             <Card style={{ gap: 8 }}>
               <View style={styles.row}>
-                <Icon name="sync-outline" color={colors.primary} size={26} />
-                <Text style={[styles.title, { flex: 1 }]}>{t('Keep the family’s phones in step')}</Text>
+                <Icon name="people-outline" color={colors.primary} size={26} />
+                <Text style={[styles.title, { flex: 1 }]}>{t('Share the family’s records through one Google Drive')}</Text>
               </View>
               <Text style={[styles.subtitle, { lineHeight: 19 }]}>
-                {t('Each phone keeps an encrypted copy of its records in its own Google Drive, and reads the other family phones’ copies. Changes arrive automatically when the app opens.')}
+                {t('The main family member links their Google Drive. The whole family’s records are kept there, and everyone else joins by scanning their code. Others don’t need a Google account to see the records.')}
               </Text>
               <Text style={[styles.subtitle, { lineHeight: 19 }]}>
                 {t('Everything is locked with a family code that only your family’s phones have. Google, or anyone else, sees only scrambled data.')}
               </Text>
             </Card>
             <Field label={t('This phone’s name')} value={deviceName} onChangeText={setName} placeholder={t('e.g. Ravi’s phone')} />
-            <SectionTitle>{t('First phone in the family')}</SectionTitle>
-            <Button title={t('Start family sync')} icon="add-circle-outline" onPress={start} />
-            <SectionTitle>{t('Someone already started it')}</SectionTitle>
-            <Text style={styles.subtitle}>{t('Open Family sync on their phone and scan or paste their code.')}</Text>
-            {addButtons}
+            <SectionTitle>{t('I’m the main family member')}</SectionTitle>
+            <Text style={styles.subtitle}>{t('Keep the family’s records in your Google Drive. Free; the app can only see the files it creates there.')}</Text>
+            <Button title={t('Link my Google Drive')} icon="logo-google" onPress={start} />
+            <SectionTitle>{t('Join my family')}</SectionTitle>
+            <Text style={styles.subtitle}>{t('Open Family sync on the main family member’s phone and scan or paste their code.')}</Text>
+            {scanButtons(false)}
             {pasteBox}
           </>
-        ) : (
+        ) : state.role === 'owner' ? (
           <>
-            <Card style={{ gap: 6 }}>
-              <View style={styles.row}>
-                <Icon name={state.lastError ? 'warning-outline' : 'cloud-done-outline'} color={state.lastError ? colors.warnStrong : colors.okText} size={24} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.title}>{syncing ? t('Syncing…') : t('Last synced {when}', { when: when(state.lastSyncAt) })}</Text>
-                  <Text style={styles.subtitle}>
-                    {tn(state.peers.length, '{n} other family phone', '{n} other family phones')} · {account ? t('sharing this phone’s records') : t('receiving only')}
-                  </Text>
-                </View>
-                {syncing ? <ActivityIndicator color={colors.primary} /> : null}
-              </View>
-              {state.lastError ? <Text style={{ color: colors.warnText }}>{state.lastError}</Text> : null}
-              <Button title={t('Sync now')} icon="sync-outline" variant="secondary" disabled={syncing} onPress={runNow} />
-            </Card>
+            {statusCard}
+            {!account ? (
+              <Card style={{ gap: 8 }}>
+                <Text style={[styles.subtitle, { lineHeight: 19 }]}>
+                  {t('Sign in with the Google account that keeps the family’s records, so family phones get your updates.')}
+                </Text>
+                <Button title={t('Link my Google Drive')} icon="logo-google" onPress={signIn} />
+              </Card>
+            ) : null}
 
-            <SectionTitle>{t('Google account')}</SectionTitle>
-            <Card style={{ gap: 8 }}>
-              {account ? (
-                <>
-                  <Text style={styles.body}>{t('Signed in as {email}', { email: account.email })}</Text>
-                  <Text style={styles.subtitle}>{t('The app can only see the files it creates in this Drive, nothing else.')}</Text>
-                  <Button
-                    title={t('Sign out')}
-                    icon="log-out-outline"
-                    variant="secondary"
-                    onPress={async () => {
-                      await signOutOfGoogle();
-                      setAccount(null);
-                    }}
-                  />
-                </>
-              ) : (
-                <>
-                  <Text style={[styles.subtitle, { lineHeight: 19 }]}>
-                    {t('Sign in so this phone’s records go to the family too. Without it, this phone only receives.')}
-                  </Text>
-                  <Button title={t('Sign in with Google')} icon="logo-google" onPress={signIn} />
-                </>
-              )}
-            </Card>
+            {codeCard(
+              t('Family code'),
+              state.myFileId
+                ? t('Family members scan this to join, or you share it on WhatsApp. It opens the family’s records, so share it only with family.')
+                : t('Sync once to create the family code.')
+            )}
 
             <Field label={t('This phone’s name')} value={deviceName} onChangeText={setName} onBlur={saveName} />
 
-            <SectionTitle>{t('This phone’s family code')}</SectionTitle>
-            <Card style={{ gap: 10, alignItems: 'center' }}>
-              {code ? <QrCode text={code} size={200} label={t('Family sync code')} /> : null}
-              <Text style={[styles.subtitle, { textAlign: 'center', lineHeight: 19 }]}>
-                {state.myFileId
-                  ? t('Let family scan this, or share it on WhatsApp. It opens the family’s records, so share it only with family.')
-                  : account
-                    ? t('Sync once so the code includes this phone’s records.')
-                    : t('Sign in with Google so the code includes this phone’s records. Without that, it only lets others join.')}
-              </Text>
-              {code ? (
-                <Button
-                  style={{ alignSelf: 'stretch' }}
-                  title={t('Share code')}
-                  icon="share-outline"
-                  variant="secondary"
-                  onPress={() => Share.share({ message: `${t('Family Health Registry, family sync code. Paste it in Family sync:')}\n\n${code}` })}
-                />
-              ) : null}
-            </Card>
-
-            <SectionTitle>{t('Family phones')}</SectionTitle>
+            <SectionTitle>{t('Phones sending changes')}</SectionTitle>
             {state.peers.length ? (
               <Card style={{ padding: 0, overflow: 'hidden' }}>
                 {state.peers.map((p, i) => (
@@ -264,7 +280,7 @@ export default function FamilySyncScreen() {
                       accessibilityLabel={t('Remove {name}', { name: p.name })}
                       hitSlop={10}
                       onPress={() =>
-                        Alert.alert(t('Remove {name}?', { name: p.name }), t('This phone stops reading its records. It can be added again with its code.'), [
+                        Alert.alert(t('Remove {name}?', { name: p.name }), t('Their changes stop reaching the family. They still see the family’s records until they stop syncing.'), [
                           { text: t('Cancel'), style: 'cancel' },
                           {
                             text: t('Remove'),
@@ -281,16 +297,77 @@ export default function FamilySyncScreen() {
                   </View>
                 ))}
               </Card>
-            ) : (
-              <Text style={styles.subtitle}>{t('No other phones yet. Scan a family member’s code, and let them scan yours.')}</Text>
-            )}
-            {addButtons}
-            {pasteBox}
-
-            <Text style={[styles.hint, { lineHeight: 18 }]}>
-              {t('Deleting something on one phone doesn’t delete it on the others yet. Edits sync; the newest edit wins.')}
+            ) : null}
+            <Text style={[styles.subtitle, { lineHeight: 19 }]}>
+              {t('Family members who also sign in with Google show a code on their phone. Scan it once, and their changes reach everyone through your Drive. Members without Google can send changes as a file: open it in Share & Sync, then Import.')}
             </Text>
-            <Button title={t('Stop family sync on this phone')} icon="close-circle-outline" variant="danger" onPress={leave} />
+            {scanButtons(false)}
+            {pasteBox}
+            {account ? (
+              <Button
+                title={t('Sign out of Google')}
+                icon="log-out-outline"
+                variant="secondary"
+                onPress={async () => {
+                  await signOutOfGoogle();
+                  setAccount(null);
+                }}
+              />
+            ) : null}
+            {deleteNote}
+            {leaveButton}
+          </>
+        ) : (
+          <>
+            {statusCard}
+            <SectionTitle>{t('Changes made on this phone')}</SectionTitle>
+            <Card style={{ gap: 8 }}>
+              {!account ? (
+                <>
+                  <Text style={[styles.subtitle, { lineHeight: 19 }]}>
+                    {t('You see the whole family’s records. Anything you add here stays on this phone until you send it to {name}.', { name: owner?.name ?? t('the main family member') })}
+                  </Text>
+                  <Button title={t('Send my changes as a file')} icon="share-outline" variant="secondary" onPress={sendAsFile} />
+                  <Text style={[styles.hint, { lineHeight: 18 }]}>{t('Send it on WhatsApp; they open it in Share & Sync, then Import.')}</Text>
+                  <Text style={[styles.subtitle, { lineHeight: 19, marginTop: 6 }]}>{t('Or sign in with your own Google account to send changes automatically.')}</Text>
+                  <Button title={t('Sign in with Google')} icon="logo-google" variant="secondary" onPress={signIn} />
+                </>
+              ) : owner?.knowsMe ? (
+                <>
+                  <View style={styles.row}>
+                    <Icon name="checkmark-circle" color={colors.okText} />
+                    <Text style={[styles.body, { flex: 1 }]}>{t('Your changes reach the family through {name}’s Drive.', { name: owner.name })}</Text>
+                  </View>
+                  <Text style={styles.subtitle}>{t('Signed in as {email}', { email: account.email })}</Text>
+                </>
+              ) : (
+                <Text style={[styles.subtitle, { lineHeight: 19 }]}>
+                  {state.myFileId
+                    ? t('One more step: let {name} scan the code below once, so your changes reach the family.', { name: owner?.name ?? t('the main family member') })
+                    : t('Sync once to create this phone’s code.')}
+                </Text>
+              )}
+            </Card>
+            {account && !owner?.knowsMe && state.myFileId ? codeCard(t('This phone’s code'), t('Show this to {name}, or send it on WhatsApp.', { name: owner?.name ?? t('the main family member') })) : null}
+            {account ? (
+              <Button
+                title={t('Sign out of Google')}
+                icon="log-out-outline"
+                variant="secondary"
+                onPress={async () => {
+                  await signOutOfGoogle();
+                  setAccount(null);
+                }}
+              />
+            ) : null}
+
+            <Field label={t('This phone’s name')} value={deviceName} onChangeText={setName} onBlur={saveName} />
+            <SectionTitle>{t('New main phone?')}</SectionTitle>
+            <Text style={styles.subtitle}>{t('If the family’s records move to someone else’s Drive, scan their code.')}</Text>
+            {scanButtons(false)}
+            {pasteBox}
+            {deleteNote}
+            {leaveButton}
           </>
         )}
       </ScrollView>

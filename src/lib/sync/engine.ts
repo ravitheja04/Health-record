@@ -5,7 +5,7 @@ import { addSyncedAttachment, buildRegistryBundle, mergeRegistryBundle, validate
 import { decrypt, encrypt, fromBase64, toBase64, utf8, WrongKeyError } from './crypto';
 import { DriveError, type DriveClient } from './drive';
 import { isSnapshot, mergeDirectory, snapshotFingerprintText, type Peer, type Snapshot } from './snapshot';
-import { getSyncState, saveSyncState } from './state';
+import { getSyncState, saveSyncState, type SyncState } from './state';
 import { t } from '../../i18n';
 
 export type SyncDeps = {
@@ -29,9 +29,10 @@ export type SyncReport = {
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /**
- * One round of family sync: read every family phone's latest records (and
- * any new photos/PDFs) and merge them, then upload this phone's records if
- * they changed.
+ * One round of family sync. The owner's phone reads the changes members send
+ * and keeps the whole family's records in its Drive; member phones read the
+ * owner's copy (and, when signed in, send their own changes). Then this
+ * phone uploads its records if they changed.
  */
 export async function runSync(deps: SyncDeps): Promise<SyncReport> {
   const { db, drive, key } = deps;
@@ -68,7 +69,12 @@ export async function runSync(deps: SyncDeps): Promise<SyncReport> {
         }
       }
       peers[i] = { fileId: peer.fileId, name: snapshot.deviceName || peer.name, lastModified: modified, lastError: null };
-      peers = mergeDirectory(peers, snapshot.directory, state.myFileId);
+      if (state.role === 'member') {
+        // Members read only the owner's copy, which already holds everyone's records.
+        peers[i].knowsMe = !!state.myFileId && snapshot.directory.some((d) => d?.fileId === state.myFileId);
+      } else {
+        peers = mergeDirectory(peers, snapshot.directory, state.myFileId);
+      }
       report.received.push({ name: peers[i].name, changed: true });
     } catch (e) {
       const text = e instanceof WrongKeyError ? t('Uses a different family code. Ask them to join with yours.') : message(e);
@@ -79,9 +85,12 @@ export async function runSync(deps: SyncDeps): Promise<SyncReport> {
   await saveSyncState(db, { peers });
 
   // ---- Send -------------------------------------------------------------------
+  if (!deps.canUpload && state.role === 'owner') {
+    report.problems.push(t('Sign in with Google. The family’s records are kept in your Drive, so others get updates only after you sign in.'));
+  }
   if (deps.canUpload) {
     try {
-      await upload(deps, state.myFileId, state.folderId, state.lastHash, state.deviceName, peers, report);
+      await upload(deps, state, peers, report);
     } catch (e) {
       report.problems.push(e instanceof DriveError && e.status === 401 ? e.message : `${t('Uploading')}: ${message(e)}`);
     }
@@ -91,16 +100,9 @@ export async function runSync(deps: SyncDeps): Promise<SyncReport> {
   return report;
 }
 
-async function upload(
-  deps: SyncDeps,
-  knownFileId: string | null,
-  knownFolderId: string | null,
-  lastHash: string | null,
-  deviceName: string,
-  peers: Peer[],
-  report: SyncReport
-) {
+async function upload(deps: SyncDeps, state: SyncState, peers: Peer[], report: SyncReport) {
   const { db, drive, key, random } = deps;
+  const { myFileId: knownFileId, folderId: knownFolderId, lastHash, deviceName, role } = state;
   const folderId = knownFolderId ?? (await drive.findOwn('folder')) ?? (await drive.createFolder('Family Health Registry (encrypted)', 'folder'));
   if (folderId !== knownFolderId) await saveSyncState(db, { folderId });
 
@@ -126,7 +128,10 @@ async function upload(
     format: 'fhr-sync',
     version: 1,
     deviceName,
-    directory: [...(myFileId ? [{ fileId: myFileId, name: deviceName }] : []), ...peers.map((p) => ({ fileId: p.fileId, name: p.name }))],
+    role,
+    // The owner lists the phones it collects changes from, so each member can see it's connected.
+    directory:
+      role === 'member' ? [] : [...(myFileId ? [{ fileId: myFileId, name: deviceName }] : []), ...peers.map((p) => ({ fileId: p.fileId, name: p.name }))],
     files: Object.fromEntries(bundle.attachments.flatMap((a) => (mapping.has(a.id) ? [[a.id, mapping.get(a.id)!]] : []))),
     bundle,
   };

@@ -7,6 +7,8 @@ export type Peer = {
   /** Drive modifiedTime of the last version merged, so unchanged files are skipped. */
   lastModified: string | null;
   lastError?: string | null;
+  /** For a member phone reading the owner: whether the owner already collects this phone's changes. */
+  knowsMe?: boolean;
 };
 
 /** What each phone uploads (encrypted) to its own Drive. */
@@ -14,6 +16,8 @@ export type Snapshot = {
   format: 'fhr-sync';
   version: 1;
   deviceName: string;
+  /** Missing in files from before roles existed. */
+  role?: 'owner' | 'member';
   updatedAt: string;
   /** Family phones this phone knows, so others find them without scanning everyone's code. */
   directory: { fileId: string; name: string }[];
@@ -55,5 +59,5 @@ export function mergeDirectory(peers: Peer[], directory: Snapshot['directory'], 
  * except the timestamp, so an unchanged phone doesn't re-upload.
  */
 export function snapshotFingerprintText(s: Omit<Snapshot, 'updatedAt'>) {
-  return JSON.stringify([s.deviceName, s.directory, s.files, s.bundle.members, s.bundle.records, s.bundle.attachments, s.bundle.labResults, s.bundle.medications, s.bundle.doseLogs, s.bundle.vaccinations, s.bundle.emergencyInfo, s.bundle.vitals]);
+  return JSON.stringify([s.deviceName, s.role, s.directory, s.files, s.bundle.members, s.bundle.records, s.bundle.attachments, s.bundle.labResults, s.bundle.medications, s.bundle.doseLogs, s.bundle.vaccinations, s.bundle.emergencyInfo, s.bundle.vitals]);
 }

@@ -5,8 +5,15 @@ import { getSetting, setSetting } from '../settings';
 import { fromBase64, toBase64 } from './crypto';
 import type { Peer } from './snapshot';
 
+/**
+ * The main family member's phone keeps the family's data in their Google
+ * Drive ("owner"); everyone else reads it from there ("member").
+ */
+export type SyncRole = 'owner' | 'member';
+
 /** Family sync state on this phone. The family key lives in the phone's secure keystore. */
 export type SyncState = {
+  role: SyncRole;
   deviceName: string;
   myFileId: string | null;
   folderId: string | null;
@@ -29,8 +36,8 @@ export async function setFamilyKey(key: Uint8Array | null) {
 }
 
 export async function getSyncState(db: SQLiteDatabase): Promise<SyncState> {
-  const [deviceName, myFileId, folderId, peers, lastHash, lastSyncAt, lastError] = await Promise.all(
-    ['sync.deviceName', 'sync.myFileId', 'sync.folderId', 'sync.peers', 'sync.lastHash', 'sync.lastSyncAt', 'sync.lastError'].map((k) => getSetting(db, k))
+  const [role, deviceName, myFileId, folderId, peers, lastHash, lastSyncAt, lastError] = await Promise.all(
+    ['sync.role', 'sync.deviceName', 'sync.myFileId', 'sync.folderId', 'sync.peers', 'sync.lastHash', 'sync.lastSyncAt', 'sync.lastError'].map((k) => getSetting(db, k))
   );
   let parsed: Peer[] = [];
   try {
@@ -40,6 +47,8 @@ export async function getSyncState(db: SQLiteDatabase): Promise<SyncState> {
   }
   // Cleared values are stored as ''.
   return {
+    // Phones set up before roles existed started their own family: treat them as owners.
+    role: role === 'member' ? 'member' : 'owner',
     deviceName: deviceName ?? '',
     myFileId: myFileId || null,
     folderId: folderId || null,
@@ -52,6 +61,7 @@ export async function getSyncState(db: SQLiteDatabase): Promise<SyncState> {
 
 export async function saveSyncState(db: SQLiteDatabase, patch: Partial<SyncState>) {
   const map: Record<keyof SyncState, string> = {
+    role: 'sync.role',
     deviceName: 'sync.deviceName',
     myFileId: 'sync.myFileId',
     folderId: 'sync.folderId',

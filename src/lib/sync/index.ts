@@ -56,27 +56,49 @@ export function syncQuietly(db: SQLiteDatabase) {
   syncNow(db).catch(() => {});
 }
 
+/** The main family member's phone starts the family; the family's records live in its Drive. */
 export async function startFamily(db: SQLiteDatabase, deviceName: string) {
   await setFamilyKey(Crypto.getRandomBytes(32));
-  await saveSyncState(db, { deviceName, peers: [], lastHash: null });
+  await saveSyncState(db, { role: 'owner', deviceName, peers: [], lastHash: null });
 }
 
+export type JoinResult = 'joined' | 'added' | 'member-code' | 'own-code' | 'owner-not-ready';
+
 /**
- * Uses a family member's code. Joining a different family replaces this
- * phone's family key (its records stay on the phone).
+ * Uses a scanned or pasted family code.
+ * - The owner's code: this phone joins as a member and reads the family's records
+ *   from the owner's Drive. Joining a different family replaces this phone's
+ *   family key (its records stay on the phone).
+ * - A member's code, scanned on the owner's phone: the owner starts collecting
+ *   that member's changes.
  */
-export async function joinWithCode(db: SQLiteDatabase, code: FamilyCode, deviceName: string) {
+export async function joinWithCode(db: SQLiteDatabase, code: FamilyCode, deviceName: string): Promise<JoinResult> {
   const current = await getFamilyKey();
   const state = await getSyncState(db);
   const switching = !current || !sameKey(current, code.key);
-  if (switching) await setFamilyKey(code.key);
-  const peers = switching ? [] : state.peers;
+
+  if (code.owner) {
+    if (!switching && state.role === 'owner' && code.fileId === state.myFileId) return 'own-code';
+    if (!code.fileId) return 'owner-not-ready';
+    if (switching) await setFamilyKey(code.key);
+    await saveSyncState(db, {
+      role: 'member',
+      deviceName: state.deviceName || deviceName,
+      peers: [{ fileId: code.fileId, name: code.name, lastModified: null }],
+      // A new key or role means everything must be uploaded again.
+      lastHash: null,
+    });
+    if (switching) await db.runAsync('DELETE FROM sync_files');
+    return 'joined';
+  }
+
+  if (switching || state.role !== 'owner') return 'member-code';
+  const peers = state.peers;
   if (code.fileId && code.fileId !== state.myFileId && !peers.some((p) => p.fileId === code.fileId)) {
     peers.push({ fileId: code.fileId, name: code.name, lastModified: null });
+    await saveSyncState(db, { peers });
   }
-  // A new key means everything must be uploaded again, encrypted with it.
-  await saveSyncState(db, { deviceName: state.deviceName || deviceName, peers, ...(switching ? { lastHash: null } : {}) });
-  if (switching) await db.runAsync('DELETE FROM sync_files');
+  return 'added';
 }
 
 /** True when a scanned code belongs to a different family than this phone's. */
@@ -89,7 +111,7 @@ export async function myFamilyCode(db: SQLiteDatabase) {
   const key = await getFamilyKey();
   if (!key) return null;
   const state = await getSyncState(db);
-  return encodeFamilyCode({ key, fileId: state.myFileId, name: state.deviceName || 'Family phone' });
+  return encodeFamilyCode({ key, fileId: state.myFileId, name: state.deviceName || 'Family phone', owner: state.role === 'owner' });
 }
 
 export async function removeFamilyPhone(db: SQLiteDatabase, fileId: string) {
@@ -100,6 +122,6 @@ export async function removeFamilyPhone(db: SQLiteDatabase, fileId: string) {
 /** Stops syncing on this phone. Records stay; the Drive files stay until deleted in Drive. */
 export async function leaveFamily(db: SQLiteDatabase) {
   await setFamilyKey(null);
-  await saveSyncState(db, { peers: [], myFileId: null, lastHash: null, lastError: null });
+  await saveSyncState(db, { role: 'owner', peers: [], myFileId: null, lastHash: null, lastError: null });
   await db.runAsync('DELETE FROM sync_files');
 }

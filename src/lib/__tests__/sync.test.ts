@@ -34,15 +34,18 @@ test('utf8 and base64 helpers match Node', () => {
 
 test('family codes encode, survive being pasted inside a message, and reject junk', () => {
   const key = random(32);
-  const code = encodeFamilyCode({ key, fileId: '1AbCdEfGhIjKlMnOpQrStUvWxYz_-123', name: 'Ravi’s phone' });
+  const code = encodeFamilyCode({ key, fileId: '1AbCdEfGhIjKlMnOpQrStUvWxYz_-123', name: 'Ravi’s phone', owner: true });
   const decoded = decodeFamilyCode(`Join our family health sync:\n${code}\nThanks!`)!;
   assert.ok(sameKey(decoded.key, key));
   assert.equal(decoded.fileId, '1AbCdEfGhIjKlMnOpQrStUvWxYz_-123');
   assert.equal(decoded.name, 'Ravi’s phone');
-  assert.equal(decodeFamilyCode(encodeFamilyCode({ key, fileId: null, name: 'Amma' }))!.fileId, null);
+  assert.equal(decoded.owner, true);
+  const member = decodeFamilyCode(encodeFamilyCode({ key, fileId: null, name: 'Amma', owner: false }))!;
+  assert.equal(member.fileId, null);
+  assert.equal(member.owner, false);
   assert.equal(decodeFamilyCode('hello'), null);
   assert.equal(decodeFamilyCode('FHRJOIN1.bm9wZQ'), null);
-  assert.equal(decodeFamilyCode(encodeFamilyCode({ key: random(16), fileId: null, name: 'x' })), null); // short key
+  assert.equal(decodeFamilyCode(encodeFamilyCode({ key: random(16), fileId: null, name: 'x', owner: false })), null); // short key
 });
 
 test('directories add unknown family phones only', () => {

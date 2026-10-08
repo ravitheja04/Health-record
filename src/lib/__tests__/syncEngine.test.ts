@@ -139,7 +139,7 @@ function driveFor(owner: string) {
 
 // ---- The test ------------------------------------------------------------------
 
-test('three phones share records, photos and edits through Drive', async () => {
+test('the main member’s Drive carries the family’s records, photos and edits to every phone', async () => {
   const DB = await import('../db');
   const { runSync } = await import('../sync/engine');
   const { getSyncState, saveSyncState, setFamilyKey } = await import('../sync/state');
@@ -149,23 +149,23 @@ test('three phones share records, photos and edits through Drive', async () => {
   const familyKey = random(32);
 
   const phones: Record<string, ReturnType<typeof openDb>> = {};
-  async function setUp(name: string, peers: string[]) {
+  async function setUp(name: string, role: 'owner' | 'member', peers: string[]) {
     phone = name;
     const db = openDb();
     await DB.migrateDbIfNeeded(db);
     await setFamilyKey(familyKey);
-    await saveSyncState(db, { deviceName: `${name} phone`, peers: peers.map((fileId) => ({ fileId, name: '?', lastModified: null })) });
+    await saveSyncState(db, { role, deviceName: `${name} phone`, peers: peers.map((fileId) => ({ fileId, name: '?', lastModified: null })) });
     phones[name] = db;
     return db;
   }
-  async function sync(name: string, key = familyKey) {
+  async function sync(name: string, { key = familyKey, signedIn = true } = {}) {
     phone = name;
-    return runSync({ db: phones[name], drive: driveFor(name) as never, key, random, sha256, canUpload: true });
+    return runSync({ db: phones[name], drive: driveFor(name) as never, key, random, sha256, canUpload: signedIn });
   }
 
-  // Phone A has a member, a lab record with a photo, and a vital.
+  // A is the main member's phone: a member, a lab record with a photo, and a vital.
   const now = '2026-10-01T10:00:00.000Z';
-  const a = await setUp('A', []);
+  const a = await setUp('A', 'owner', []);
   await DB.upsertMember(a, {
     id: 'm1', name: 'Priya Sharma', relation: 'Parent', dob: '1968-04-23', gender: 'Female', bloodGroup: 'O+',
     allergies: '', conditions: '', medications: '', emergencyContact: '', notes: '', color: '#2563EB', createdAt: now, updatedAt: now,
@@ -184,46 +184,58 @@ test('three phones share records, photos and edits through Drive', async () => {
   // Everything on Drive is encrypted.
   for (const f of driveFiles.values()) if (f.content) assert.ok(!f.content.includes('Priya') && f.content.startsWith('FHRSYNC1:'));
 
-  // Phone B joined with A's code: it gets A's records and photo.
-  const b = await setUp('B', [aFile]);
+  // B joined with A's code and signed in with Google: it gets everything and sends its own copy.
+  const b = await setUp('B', 'member', [aFile]);
   const fromA = await sync('B');
   assert.deepEqual(fromA.problems, []);
   assert.equal(fromA.filesReceived, 1);
+  assert.equal(fromA.uploaded, true);
   assert.equal(((await DB.getMember(b, 'm1')) as { name: string }).name, 'Priya Sharma');
   assert.equal(disk.get('file:///B/doc/attachments/att1.jpg'), photo);
   assert.equal(((await Vitals.getVital(b, 'v1')) as { value: number }).value, 132);
   const bFile = (await getSyncState(b)).myFileId!;
+  assert.equal((await getSyncState(b)).peers[0].knowsMe, false);
 
-  // Phone C only knows B, but finds A through B's directory and gets everything.
-  const c = await setUp('C', [bFile]);
-  const fromB = await sync('C');
-  assert.deepEqual(fromB.problems, []);
-  assert.deepEqual(
-    (await getSyncState(c)).peers.map((p) => p.name).sort(),
-    ['A phone', 'B phone']
-  );
+  // C joined with A's code and never signs in to Google: it still gets everything, and uploads nothing.
+  const c = await setUp('C', 'member', [aFile]);
+  const fromA2 = await sync('C', { signedIn: false });
+  assert.deepEqual(fromA2.problems, []);
+  assert.equal(fromA2.uploaded, false);
+  assert.equal((await getSyncState(c)).myFileId, null);
   assert.equal(((await DB.getRecord(c, 'r1')) as { title: string }).title, 'Lipid profile');
   assert.equal(disk.get('file:///C/doc/attachments/att1.jpg'), photo);
+  assert.ok(![...driveFiles.values()].some((f) => f.owner === 'C'), 'C has no Drive files');
 
-  // An unchanged phone doesn't upload again.
-  phone = 'A';
-  await sync('A'); // learns nothing new from anyone yet (no peers)
+  // An unchanged phone doesn't upload again (after the round that adds its own file to its directory).
+  await sync('A');
   assert.equal((await sync('A')).uploaded, false);
 
-  // A later edit on C reaches A once A knows C (C's code scanned on A).
-  phone = 'C';
-  await Vitals.upsertVital(c, { id: 'v1', memberId: 'm1', type: 'bp', value: 124, value2: 80, context: '', measuredAt: '2026-10-01T08:00', notes: 'rechecked', createdAt: now, updatedAt: '2026-10-02T09:00:00.000Z' });
-  assert.equal((await sync('C')).uploaded, true);
+  // A scans B's code, so A collects B's changes; B sees it's connected.
   phone = 'A';
-  const stateA = await getSyncState(a);
-  await saveSyncState(a, { peers: [...stateA.peers, { fileId: (await getSyncState(c)).myFileId!, name: '?', lastModified: null }] });
-  const fromC = await sync('A');
-  assert.deepEqual(fromC.problems, []);
-  assert.equal(((await Vitals.getVital(a, 'v1')) as { value: number; notes: string }).notes, 'rechecked');
+  await saveSyncState(a, { peers: [{ fileId: bFile, name: '?', lastModified: null }] });
+  assert.deepEqual((await sync('A')).problems, []);
+  await sync('B');
+  assert.equal((await getSyncState(b)).peers[0].knowsMe, true);
+  // Members only ever read the main member's copy, not each other's.
+  assert.deepEqual((await getSyncState(b)).peers.map((p) => p.fileId), [aFile]);
+
+  // An edit on B reaches A, and through A's Drive reaches C.
+  phone = 'B';
+  await Vitals.upsertVital(b, { id: 'v1', memberId: 'm1', type: 'bp', value: 124, value2: 80, context: '', measuredAt: '2026-10-01T08:00', notes: 'rechecked', createdAt: now, updatedAt: '2026-10-02T09:00:00.000Z' });
+  assert.equal((await sync('B')).uploaded, true);
+  const fromB = await sync('A');
+  assert.deepEqual(fromB.problems, []);
+  assert.equal(fromB.uploaded, true);
+  assert.equal(((await Vitals.getVital(a, 'v1')) as { notes: string }).notes, 'rechecked');
+  await sync('C', { signedIn: false });
+  assert.equal(((await Vitals.getVital(c, 'v1')) as { value: number; notes: string }).notes, 'rechecked');
+
+  // The main member's phone signed out of Google: it says why others stop getting updates.
+  assert.match((await sync('A', { signedIn: false })).problems.join(' '), /Sign in with Google/);
 
   // A phone with a different family key can't read the family's files.
-  const d = await setUp('D', [aFile]);
-  const outsider = await sync('D', random(32));
+  const d = await setUp('D', 'member', [aFile]);
+  const outsider = await sync('D', { key: random(32) });
   assert.match(outsider.problems.join(' '), /different family code/);
   assert.equal(await DB.getMember(d, 'm1'), null);
 });
