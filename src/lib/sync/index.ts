@@ -2,17 +2,17 @@ import * as Crypto from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { syncRemindersQuietly } from '../reminders';
-import { DriveClient } from './drive';
-import { encodeFamilyCode, sameKey, type FamilyCode } from './familyCode';
-import { dropGoogleToken, googleAccessToken, googleApiKey, syncConfigured } from './google';
+import { toBase64 } from './crypto';
 import { runSync, type SyncReport } from './engine';
+import { encodeFamilyCode, sameKey, type FamilyCode } from './familyCode';
 import { getFamilyKey, getSyncState, saveSyncState, setFamilyKey } from './state';
-
-export { syncConfigured };
+import { StoreClient, storeToken } from './store';
 
 let running: Promise<SyncReport | null> | null = null;
 let lastAutoRun = 0;
 const listeners = new Set<() => void>();
+
+const sha256 = (text: string) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, text);
 
 /** Lets the Sync screen show "Syncing…" and refresh when a round finishes. */
 export function onSyncChange(listener: () => void) {
@@ -23,22 +23,18 @@ export function onSyncChange(listener: () => void) {
 }
 export const isSyncing = () => running !== null;
 
-/** Runs one sync round (or joins the one in progress). Null when sync isn't set up. */
+async function storeFor(url: string, key: Uint8Array) {
+  return new StoreClient(url, await storeToken(key, sha256));
+}
+
+/** Runs one sync round (or joins the one in progress). Null when this phone isn't in a family. */
 export function syncNow(db: SQLiteDatabase): Promise<SyncReport | null> {
   if (running) return running;
   running = (async () => {
-    const key = syncConfigured ? await getFamilyKey() : null;
-    if (!key) return null;
-    const token = await googleAccessToken();
-    const drive = new DriveClient({ getToken: googleAccessToken, dropToken: dropGoogleToken, apiKey: googleApiKey });
-    const report = await runSync({
-      db,
-      drive,
-      key,
-      random: (n) => Crypto.getRandomBytes(n),
-      sha256: (text) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, text),
-      canUpload: token !== null,
-    });
+    const key = await getFamilyKey();
+    const state = await getSyncState(db);
+    if (!key || !state.url) return null;
+    const report = await runSync({ db, store: await storeFor(state.url, key), key, random: (n) => Crypto.getRandomBytes(n), sha256 });
     if (report.received.some((r) => r.changed)) syncRemindersQuietly(db);
     return report;
   })().finally(() => {
@@ -56,27 +52,38 @@ export function syncQuietly(db: SQLiteDatabase) {
   syncNow(db).catch(() => {});
 }
 
-export async function startFamily(db: SQLiteDatabase, deviceName: string) {
-  await setFamilyKey(Crypto.getRandomBytes(32));
-  await saveSyncState(db, { deviceName, peers: [], lastHash: null });
+const newDeviceId = () =>
+  toBase64(Crypto.getRandomBytes(12)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+async function joinStore(db: SQLiteDatabase, url: string, key: Uint8Array, deviceName: string) {
+  const state = await getSyncState(db);
+  await setFamilyKey(key);
+  await saveSyncState(db, {
+    url,
+    deviceId: state.deviceId || newDeviceId(),
+    deviceName: state.deviceName || deviceName,
+    phones: [],
+    // Everything is sent again, encrypted with this family's key.
+    lastHash: null,
+    lastError: null,
+  });
 }
 
 /**
- * Uses a family member's code. Joining a different family replaces this
- * phone's family key (its records stay on the phone).
+ * The main family member connects the storage script they deployed. The
+ * first connection claims it for a new family key; a storage that already
+ * belongs to another family code is refused.
  */
+export async function startFamily(db: SQLiteDatabase, url: string, deviceName: string) {
+  const key = Crypto.getRandomBytes(32);
+  await (await storeFor(url, key)).hello();
+  await joinStore(db, url, key, deviceName);
+}
+
+/** Uses a family member's code. Joining a different family replaces this phone's family key (its records stay on the phone). */
 export async function joinWithCode(db: SQLiteDatabase, code: FamilyCode, deviceName: string) {
-  const current = await getFamilyKey();
-  const state = await getSyncState(db);
-  const switching = !current || !sameKey(current, code.key);
-  if (switching) await setFamilyKey(code.key);
-  const peers = switching ? [] : state.peers;
-  if (code.fileId && code.fileId !== state.myFileId && !peers.some((p) => p.fileId === code.fileId)) {
-    peers.push({ fileId: code.fileId, name: code.name, lastModified: null });
-  }
-  // A new key means everything must be uploaded again, encrypted with it.
-  await saveSyncState(db, { deviceName: state.deviceName || deviceName, peers, ...(switching ? { lastHash: null } : {}) });
-  if (switching) await db.runAsync('DELETE FROM sync_files');
+  await (await storeFor(code.url, code.key)).hello();
+  await joinStore(db, code.url, code.key, deviceName);
 }
 
 /** True when a scanned code belongs to a different family than this phone's. */
@@ -85,21 +92,21 @@ export async function isOtherFamily(code: FamilyCode) {
   return !!current && !sameKey(current, code.key);
 }
 
+/** True when a scanned code is the one this phone already uses. */
+export async function isSameFamily(code: FamilyCode) {
+  const current = await getFamilyKey();
+  return !!current && sameKey(current, code.key);
+}
+
 export async function myFamilyCode(db: SQLiteDatabase) {
   const key = await getFamilyKey();
-  if (!key) return null;
   const state = await getSyncState(db);
-  return encodeFamilyCode({ key, fileId: state.myFileId, name: state.deviceName || 'Family phone' });
+  if (!key || !state.url) return null;
+  return encodeFamilyCode({ key, url: state.url, name: state.deviceName || 'Family phone' });
 }
 
-export async function removeFamilyPhone(db: SQLiteDatabase, fileId: string) {
-  const state = await getSyncState(db);
-  await saveSyncState(db, { peers: state.peers.filter((p) => p.fileId !== fileId) });
-}
-
-/** Stops syncing on this phone. Records stay; the Drive files stay until deleted in Drive. */
+/** Stops syncing on this phone. Records stay; the family's files stay in the storage. */
 export async function leaveFamily(db: SQLiteDatabase) {
   await setFamilyKey(null);
-  await saveSyncState(db, { peers: [], myFileId: null, lastHash: null, lastError: null });
-  await db.runAsync('DELETE FROM sync_files');
+  await saveSyncState(db, { url: '', phones: [], lastHash: null, lastError: null });
 }

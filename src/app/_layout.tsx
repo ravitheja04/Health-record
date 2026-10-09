@@ -123,6 +123,7 @@ export default function RootLayout() {
             <Stack.Screen name="share" options={{ title: t('Share & Sync'), presentation: 'modal' }} />
           <Stack.Screen name="sync/index" options={{ title: t('Family sync') }} />
           <Stack.Screen name="sync/scan" options={{ title: t('Scan family code') }} />
+          <Stack.Screen name="sync/setup" options={{ title: t('Set up family storage') }} />
             <Stack.Screen name="member/[id]" options={{ title: '' }} />
             <Stack.Screen name="member/edit" options={{ title: t('Family member'), presentation: 'modal' }} />
             <Stack.Screen name="record/[id]" options={{ title: t('Record') }} />

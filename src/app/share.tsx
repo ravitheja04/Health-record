@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Card, colors, Icon, styles } from '@/components/ui';
 import { syncRemindersQuietly } from '@/lib/reminders';
 import { importRegistryBundle, shareRegistryBundle } from '@/lib/share';
+import { syncNow } from '@/lib/sync';
 import { showError } from '@/lib/useQuery';
 import { t } from '@/i18n';
 
@@ -58,6 +59,8 @@ export default function ShareScreen() {
         `${r.vitalsImported} vitals readings`,
       ];
       syncRemindersQuietly(db);
+      // On the main family phone this passes what was imported on to the family's Drive.
+      syncNow(db).catch(() => {});
       Alert.alert(
         t('Import complete'),
         `${lines.join('\n')}${r.medicationsAdded ? '\n\nReminders for shared medicines are off on this phone. Turn them on per medicine if you want them here.' : ''}`
