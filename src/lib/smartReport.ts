@@ -34,7 +34,10 @@ export type SmartPanel = {
 };
 
 export type SmartReport = {
+  /** Reports included (up to the chosen one), oldest first. */
   columns: ReportColumn[];
+  /** Every report with results, oldest first, for choosing which one to view as of. */
+  allColumns: ReportColumn[];
   panels: SmartPanel[];
   firstDate: string | null;
   latestDate: string | null;
@@ -75,11 +78,19 @@ function isOut(status: LabStatus) {
   return status === 'high' || status === 'low';
 }
 
-export function buildSmartReport(points: LabPoint[]): SmartReport {
-  const series = buildSeries(points);
+/**
+ * Builds the report from every result, or as it stood at one earlier report
+ * (`asOfRecordId`): only that report and the ones before it count.
+ */
+export function buildSmartReport(allPoints: LabPoint[], asOfRecordId?: string | null): SmartReport {
   const columns = new Map<string, ReportColumn>();
-  for (const p of points) if (!columns.has(p.recordId)) columns.set(p.recordId, { recordId: p.recordId, date: p.date, title: p.recordTitle });
-  const sortedColumns = [...columns.values()].sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
+  for (const p of allPoints) if (!columns.has(p.recordId)) columns.set(p.recordId, { recordId: p.recordId, date: p.date, title: p.recordTitle });
+  const allColumns = [...columns.values()].sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
+  const cut = asOfRecordId ? allColumns.findIndex((c) => c.recordId === asOfRecordId) : -1;
+  const sortedColumns = cut >= 0 ? allColumns.slice(0, cut + 1) : allColumns;
+  const included = new Set(sortedColumns.map((c) => c.recordId));
+  const points = cut >= 0 ? allPoints.filter((p) => included.has(p.recordId)) : allPoints;
+  const series = buildSeries(points);
 
   const tests: SmartTest[] = series.map((s) => {
     const byRecord: Record<string, LabPoint> = {};
@@ -109,6 +120,7 @@ export function buildSmartReport(points: LabPoint[]): SmartReport {
 
   return {
     columns: sortedColumns,
+    allColumns,
     panels,
     firstDate: sortedColumns[0]?.date ?? null,
     latestDate: sortedColumns[sortedColumns.length - 1]?.date ?? null,

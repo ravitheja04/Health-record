@@ -81,3 +81,24 @@ test('every catalog test has a plain explanation, translated to Telugu', () => {
   }
   assert.equal(aboutTest('custom:foo'), null);
 });
+
+test('the report can be viewed as it stood at an earlier report', () => {
+  const points = [
+    mk({ recordId: 'r1', date: '2025-01-10', value: 7.2 }),
+    mk({ recordId: 'r2', date: '2025-06-01', value: 6.4 }),
+    mk({ recordId: 'r3', date: '2026-02-01', value: 5.4 }),
+    mk({ recordId: 'r3', date: '2026-02-01', testKey: 'tsh', testName: 'TSH', value: 2.1, unit: 'µIU/mL', refLow: 0.4, refHigh: 4 }),
+  ];
+  const now = buildSmartReport(points);
+  assert.equal(now.testCount, 2);
+  assert.equal(now.outOfRange, 0);
+  const then = buildSmartReport(points, 'r2');
+  assert.deepEqual(then.columns.map((c) => c.recordId), ['r1', 'r2']);
+  assert.deepEqual(then.allColumns.map((c) => c.recordId), ['r1', 'r2', 'r3']);
+  assert.equal(then.testCount, 1); // TSH was first tested later
+  assert.equal(then.latestDate, '2025-06-01');
+  assert.equal(then.panels[0].tests[0].latest.value, 6.4);
+  assert.equal(then.outOfRange, 1);
+  // An unknown report id shows everything.
+  assert.equal(buildSmartReport(points, 'nope').columns.length, 3);
+});
