@@ -20,7 +20,21 @@ export default function ScanFamilyCodeScreen() {
     if (handled.current) return;
     handled.current = true;
     setBusy(true);
-    const message = await applyFamilyCode(db, data, deviceName);
+    let message: string | null;
+    try {
+      message = await applyFamilyCode(db, data, deviceName);
+    } catch (e) {
+      Alert.alert(t('Couldn’t join'), e instanceof Error ? e.message : String(e), [
+        {
+          text: t('OK'),
+          onPress: () => {
+            handled.current = false;
+            setBusy(false);
+          },
+        },
+      ]);
+      return;
+    }
     if (message === null) {
       handled.current = false;
       setBusy(false);

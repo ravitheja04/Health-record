@@ -3,19 +3,17 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import { readAttachmentBase64 } from '../files';
 import { addSyncedAttachment, buildRegistryBundle, mergeRegistryBundle, validateBundle } from '../share';
 import { decrypt, encrypt, fromBase64, toBase64, utf8, WrongKeyError } from './crypto';
-import { DriveError, type DriveClient } from './drive';
-import { isSnapshot, mergeDirectory, snapshotFingerprintText, type Peer, type Snapshot } from './snapshot';
-import { getSyncState, saveSyncState, type SyncState } from './state';
+import { attachmentFile, isPhoneFile, isSnapshot, phoneFile, snapshotFingerprintText, type Snapshot } from './snapshot';
+import { getSyncState, saveSyncState, type FamilyPhone } from './state';
+import type { StoreClient } from './store';
 import { t } from '../../i18n';
 
 export type SyncDeps = {
   db: SQLiteDatabase;
-  drive: DriveClient;
+  store: Pick<StoreClient, 'list' | 'get' | 'put'>;
   key: Uint8Array;
   random: (n: number) => Uint8Array;
   sha256: (text: string) => Promise<string>;
-  /** Signed in with Google, so this phone can upload its own records. */
-  canUpload: boolean;
 };
 
 export type SyncReport = {
@@ -26,126 +24,111 @@ export type SyncReport = {
   problems: string[];
 };
 
+/** Photos and PDFs bigger than this stay on the phone (the storage script handles up to about 50 MB of text). */
+export const MAX_SHARED_FILE_BYTES = 15 * 1024 * 1024;
+
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /**
- * One round of family sync. The owner's phone reads the changes members send
- * and keeps the whole family's records in its Drive; member phones read the
- * owner's copy (and, when signed in, send their own changes). Then this
- * phone uploads its records if they changed.
+ * One round of family sync through the family storage: read every other
+ * family phone's records (and any photos/PDFs this phone lacks) and merge
+ * them, then send this phone's records and new files if they changed.
  */
 export async function runSync(deps: SyncDeps): Promise<SyncReport> {
-  const { db, drive, key } = deps;
+  const { db, store, key } = deps;
   const state = await getSyncState(db);
   const report: SyncReport = { received: [], uploaded: false, filesUploaded: 0, filesReceived: 0, problems: [] };
-  let peers = state.peers;
+
+  let files;
+  try {
+    files = await store.list();
+  } catch (e) {
+    report.problems.push(message(e));
+    await saveSyncState(db, { lastSyncAt: new Date().toISOString(), lastError: report.problems[0] });
+    return report;
+  }
+  const stored = new Set(files.map((f) => f.name));
+  const myFile = phoneFile(state.deviceId);
+  const known = new Map(state.phones.map((p) => [p.file, p]));
 
   // ---- Receive ----------------------------------------------------------------
-  for (let i = 0; i < peers.length; i++) {
-    const peer = peers[i];
-    if (peer.fileId === state.myFileId) continue;
+  const phones: FamilyPhone[] = [];
+  for (const f of files) {
+    if (!isPhoneFile(f.name) || f.name === myFile) continue;
+    const prev = known.get(f.name);
+    if (prev && prev.lastModified === f.modified && !prev.lastError) {
+      phones.push(prev);
+      report.received.push({ name: prev.name, changed: false });
+      continue;
+    }
     try {
-      const modified = await drive.publicModifiedTime(peer.fileId);
-      if (modified === null) {
-        peers[i] = { ...peer, lastError: t('Not found on Drive. That phone may have left the family.') };
-        continue;
-      }
-      if (modified === peer.lastModified && !peer.lastError) {
-        report.received.push({ name: peer.name, changed: false });
-        continue;
-      }
-      const snapshot: unknown = JSON.parse(utf8.decode(decrypt(key, await drive.publicDownload(peer.fileId))));
+      const text = await store.get(f.name);
+      if (text === null) continue;
+      const snapshot: unknown = JSON.parse(utf8.decode(decrypt(key, text)));
       if (!isSnapshot(snapshot)) throw new Error(t('Not a family sync file.'));
       const { missingFiles } = await mergeRegistryBundle(db, validateBundle(snapshot.bundle));
+      // A file the other phone hasn't sent yet: look at that phone again next time.
+      let waiting = false;
       for (const a of missingFiles) {
-        const driveFileId = snapshot.files[a.id];
-        if (!driveFileId) continue;
+        const name = attachmentFile(a.id);
+        if (!stored.has(name)) {
+          waiting = true;
+          continue;
+        }
         try {
-          const bytes = decrypt(key, await drive.publicDownload(driveFileId));
-          if (await addSyncedAttachment(db, a, toBase64(bytes))) report.filesReceived++;
-          await db.runAsync('INSERT OR REPLACE INTO sync_files (attachmentId, driveFileId) VALUES (?, ?)', a.id, driveFileId);
+          const enc = await store.get(name);
+          if (enc !== null && (await addSyncedAttachment(db, a, toBase64(decrypt(key, enc))))) report.filesReceived++;
         } catch (e) {
+          waiting = true;
           report.problems.push(`${t('A file from {name}', { name: snapshot.deviceName })}: ${message(e)}`);
         }
       }
-      peers[i] = { fileId: peer.fileId, name: snapshot.deviceName || peer.name, lastModified: modified, lastError: null };
-      if (state.role === 'member') {
-        // Members read only the owner's copy, which already holds everyone's records.
-        peers[i].knowsMe = !!state.myFileId && snapshot.directory.some((d) => d?.fileId === state.myFileId);
-      } else {
-        peers = mergeDirectory(peers, snapshot.directory, state.myFileId);
-      }
-      report.received.push({ name: peers[i].name, changed: true });
+      const name = snapshot.deviceName || prev?.name || t('Family phone');
+      phones.push({ file: f.name, name, lastModified: waiting ? null : f.modified, lastError: null });
+      report.received.push({ name, changed: true });
     } catch (e) {
       const text = e instanceof WrongKeyError ? t('Uses a different family code. Ask them to join with yours.') : message(e);
-      peers[i] = { ...peer, lastError: text };
-      report.problems.push(`${peer.name}: ${text}`);
+      const name = prev?.name ?? t('Family phone');
+      phones.push({ file: f.name, name, lastModified: prev?.lastModified ?? null, lastError: text });
+      report.problems.push(`${name}: ${text}`);
     }
   }
-  await saveSyncState(db, { peers });
+  await saveSyncState(db, { phones });
 
   // ---- Send -------------------------------------------------------------------
-  if (!deps.canUpload && state.role === 'owner') {
-    report.problems.push(t('Sign in with Google. The family’s records are kept in your Drive, so others get updates only after you sign in.'));
-  }
-  if (deps.canUpload) {
-    try {
-      await upload(deps, state, peers, report);
-    } catch (e) {
-      report.problems.push(e instanceof DriveError && e.status === 401 ? e.message : `${t('Uploading')}: ${message(e)}`);
-    }
+  try {
+    await upload(deps, state.deviceName, myFile, stored, state.lastHash, report);
+  } catch (e) {
+    report.problems.push(`${t('Sending')}: ${message(e)}`);
   }
 
   await saveSyncState(db, { lastSyncAt: new Date().toISOString(), lastError: report.problems[0] ?? null });
   return report;
 }
 
-async function upload(deps: SyncDeps, state: SyncState, peers: Peer[], report: SyncReport) {
-  const { db, drive, key, random } = deps;
-  const { myFileId: knownFileId, folderId: knownFolderId, lastHash, deviceName, role } = state;
-  const folderId = knownFolderId ?? (await drive.findOwn('folder')) ?? (await drive.createFolder('Family Health Registry (encrypted)', 'folder'));
-  if (folderId !== knownFolderId) await saveSyncState(db, { folderId });
-
+async function upload(deps: SyncDeps, deviceName: string, myFile: string, stored: Set<string>, lastHash: string | null, report: SyncReport) {
+  const { db, store, key, random } = deps;
   const bundle = await buildRegistryBundle(db, undefined, false);
 
   // Photos and PDFs go up once each, as their own encrypted files.
-  const mapping = new Map(
-    (await db.getAllAsync<{ attachmentId: string; driveFileId: string }>('SELECT * FROM sync_files')).map((r) => [r.attachmentId, r.driveFileId])
-  );
   for (const a of bundle.attachments) {
-    if (mapping.has(a.id)) continue;
+    const name = attachmentFile(a.id);
+    if (stored.has(name)) continue;
     const base64 = readAttachmentBase64(a);
     if (base64 === null) continue;
-    const id = await drive.createFile(`file-${a.id}.enc`, encrypt(key, fromBase64(base64), random), { parent: folderId });
-    await drive.shareByLink(id);
-    await db.runAsync('INSERT OR REPLACE INTO sync_files (attachmentId, driveFileId) VALUES (?, ?)', a.id, id);
-    mapping.set(a.id, id);
+    const bytes = fromBase64(base64);
+    if (bytes.length > MAX_SHARED_FILE_BYTES) {
+      report.problems.push(t('“{name}” is too big to share with the family (over 15 MB). It stays on this phone.', { name: a.name }));
+      continue;
+    }
+    await store.put(name, encrypt(key, bytes, random));
     report.filesUploaded++;
   }
 
-  const myFileId = knownFileId ?? (await drive.findOwn('snapshot'));
-  const body: Omit<Snapshot, 'updatedAt'> = {
-    format: 'fhr-sync',
-    version: 1,
-    deviceName,
-    role,
-    // The owner lists the phones it collects changes from, so each member can see it's connected.
-    directory:
-      role === 'member' ? [] : [...(myFileId ? [{ fileId: myFileId, name: deviceName }] : []), ...peers.map((p) => ({ fileId: p.fileId, name: p.name }))],
-    files: Object.fromEntries(bundle.attachments.flatMap((a) => (mapping.has(a.id) ? [[a.id, mapping.get(a.id)!]] : []))),
-    bundle,
-  };
+  const body: Omit<Snapshot, 'updatedAt'> = { format: 'fhr-sync', version: 2, deviceName, bundle };
   const hash = await deps.sha256(snapshotFingerprintText(body));
-  if (myFileId && hash === lastHash) return;
-
-  const text = encrypt(key, utf8.encode(JSON.stringify({ ...body, updatedAt: new Date().toISOString() })), random);
-  let fileId = myFileId;
-  if (fileId) {
-    await drive.updateFile(fileId, text);
-  } else {
-    fileId = await drive.createFile(`Family Health Registry - ${deviceName || 'phone'}.enc`, text, { parent: folderId, tag: 'snapshot' });
-    await drive.shareByLink(fileId);
-  }
-  await saveSyncState(db, { myFileId: fileId, lastHash: hash });
+  if (hash === lastHash && stored.has(myFile)) return;
+  await store.put(myFile, encrypt(key, utf8.encode(JSON.stringify({ ...body, updatedAt: new Date().toISOString() })), random));
+  await saveSyncState(db, { lastHash: hash });
   report.uploaded = true;
 }

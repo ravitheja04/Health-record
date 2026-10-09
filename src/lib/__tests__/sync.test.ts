@@ -1,12 +1,16 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { test } from 'node:test';
 
 import { decrypt, encrypt, fromBase64, toBase64, utf8, WrongKeyError } from '../sync/crypto';
-import { DriveClient, DriveError } from '../sync/drive';
+import { readFileSync } from 'node:fs';
+
 import { decodeFamilyCode, encodeFamilyCode, sameKey } from '../sync/familyCode';
-import { mergeDirectory, snapshotFingerprintText } from '../sync/snapshot';
+import { FAMILY_SCRIPT } from '../sync/script';
+import { isPhoneFile, snapshotFingerprintText } from '../sync/snapshot';
+import { cleanStoreUrl, StoreClient, StoreError, storeToken } from '../sync/store';
+import { appsScriptWebApp } from './fixtures/appsScript';
 
 const random = (n: number) => new Uint8Array(randomBytes(n));
 
@@ -32,105 +36,87 @@ test('utf8 and base64 helpers match Node', () => {
   assert.deepEqual(fromBase64(toBase64(b)), b);
 });
 
-test('family codes encode, survive being pasted inside a message, and reject junk', () => {
+const URL = 'https://script.google.com/macros/s/AKfycbx1234567890abcdefghijklmnopqrstuvwxyzABCDEF/exec';
+const sha256 = async (text: string) => createHash('sha256').update(text).digest('hex');
+
+test('family codes carry the key and storage link, survive being pasted inside a message, and reject junk', () => {
   const key = random(32);
-  const code = encodeFamilyCode({ key, fileId: '1AbCdEfGhIjKlMnOpQrStUvWxYz_-123', name: 'Ravi’s phone', owner: true });
+  const code = encodeFamilyCode({ key, url: URL, name: 'Ravi’s phone' });
   const decoded = decodeFamilyCode(`Join our family health sync:\n${code}\nThanks!`)!;
   assert.ok(sameKey(decoded.key, key));
-  assert.equal(decoded.fileId, '1AbCdEfGhIjKlMnOpQrStUvWxYz_-123');
+  assert.equal(decoded.url, URL);
   assert.equal(decoded.name, 'Ravi’s phone');
-  assert.equal(decoded.owner, true);
-  const member = decodeFamilyCode(encodeFamilyCode({ key, fileId: null, name: 'Amma', owner: false }))!;
-  assert.equal(member.fileId, null);
-  assert.equal(member.owner, false);
   assert.equal(decodeFamilyCode('hello'), null);
-  assert.equal(decodeFamilyCode('FHRJOIN1.bm9wZQ'), null);
-  assert.equal(decodeFamilyCode(encodeFamilyCode({ key: random(16), fileId: null, name: 'x', owner: false })), null); // short key
+  assert.equal(decodeFamilyCode('FHRJOIN2.bm9wZQ'), null);
+  assert.equal(decodeFamilyCode(encodeFamilyCode({ key: random(16), url: URL, name: 'x' })), null); // short key
+  assert.equal(decodeFamilyCode(encodeFamilyCode({ key, url: 'https://evil.example/exec', name: 'x' })), null);
 });
 
-test('directories add unknown family phones only', () => {
-  const peers = [{ fileId: 'AAAAAAAAAAAA', name: 'Amma', lastModified: '2026-10-01' }];
-  const merged = mergeDirectory(
-    peers,
-    [
-      { fileId: 'AAAAAAAAAAAA', name: 'Amma again' },
-      { fileId: 'MYFILEIDxxxx', name: 'Me' },
-      { fileId: 'BBBBBBBBBBBB', name: 'Ravi' },
-      { fileId: 'bad id!', name: 'Junk' },
-    ],
-    'MYFILEIDxxxx'
-  );
-  assert.deepEqual(
-    merged.map((p) => [p.fileId, p.name, p.lastModified]),
-    [
-      ['AAAAAAAAAAAA', 'Amma', '2026-10-01'],
-      ['BBBBBBBBBBBB', 'Ravi', null],
-    ]
-  );
+test('storage links are recognised in what people paste', () => {
+  assert.equal(cleanStoreUrl(`  ${URL}  `), URL);
+  assert.equal(cleanStoreUrl(`Web app URL: ${URL}?x=1`), URL);
+  const workspace = 'https://script.google.com/a/example.com/macros/s/AKfycbx1234567890abcdefghijklmnop/exec';
+  assert.equal(cleanStoreUrl(workspace), workspace);
+  assert.equal(cleanStoreUrl('https://script.google.com/macros/s/AKfycbx1234567890abcdefghijklmnop/dev'), null);
+  assert.equal(cleanStoreUrl('https://example.com/macros/s/AKfycbx1234567890abcdefghijklmnop/exec'), null);
 });
 
-test('the upload fingerprint ignores the timestamp', () => {
+test('the app carries exactly the published storage script', () => {
+  assert.equal(FAMILY_SCRIPT, readFileSync('docs/family-storage.gs', 'utf8'));
+});
+
+test('the upload fingerprint ignores timestamps; phone files are recognised', () => {
   const bundle = { format: 'family-health-registry', version: 6, exportedAt: 'x', members: [], records: [], attachments: [] } as never;
-  const a = snapshotFingerprintText({ format: 'fhr-sync', version: 1, deviceName: 'P', directory: [], files: {}, bundle });
-  const b = snapshotFingerprintText({ format: 'fhr-sync', version: 1, deviceName: 'P', directory: [], files: {}, bundle: { ...(bundle as object), exportedAt: 'y' } as never });
+  const a = snapshotFingerprintText({ format: 'fhr-sync', version: 2, deviceName: 'P', bundle });
+  const b = snapshotFingerprintText({ format: 'fhr-sync', version: 2, deviceName: 'P', bundle: { ...(bundle as object), exportedAt: 'y' } as never });
   assert.equal(a, b);
+  assert.ok(isPhoneFile('phone-AbC123_-xyz.enc'));
+  assert.ok(!isPhoneFile('file-123.enc'));
+  assert.ok(!isPhoneFile('phone-../x.enc'));
 });
 
-// ---- Drive client against a fake fetch -----------------------------------------
+test('storage script: the first phone claims it, the family shares it, others are refused', async () => {
+  const app = appsScriptWebApp();
+  const familyKey = random(32);
+  const store = new StoreClient(URL, await storeToken(familyKey, sha256), app.fetch);
 
-type Call = { url: string; init?: RequestInit };
-function fakeFetch(responses: (Response | ((c: Call) => Response))[]) {
-  const calls: Call[] = [];
-  const fn = (async (url: string, init?: RequestInit) => {
-    const call = { url: String(url), init };
-    calls.push(call);
-    const next = responses.shift();
-    if (!next) throw new Error(`unexpected request ${url}`);
-    return typeof next === 'function' ? next(call) : next;
+  // Nothing works before the main family member connects.
+  await assert.rejects(store.list(), (e: unknown) => e instanceof StoreError && e.code === 'not-set-up');
+  await store.hello();
+  assert.deepEqual(await store.list(), []);
+
+  await store.put('phone-abcdef.enc', 'FHRSYNC1:aaa');
+  await store.put('phone-abcdef.enc', 'FHRSYNC1:bbb');
+  assert.equal(await store.get('phone-abcdef.enc'), 'FHRSYNC1:bbb');
+  assert.equal(await store.get('phone-other1.enc'), null);
+  assert.deepEqual((await store.list()).map((f) => f.name), ['phone-abcdef.enc']);
+
+  // A second phone with the same family code uses the same storage.
+  const sameFamily = new StoreClient(URL, await storeToken(familyKey, sha256), app.fetch);
+  await sameFamily.hello();
+  assert.equal(await sameFamily.get('phone-abcdef.enc'), 'FHRSYNC1:bbb');
+
+  // A different family can't claim or read it.
+  const stranger = new StoreClient(URL, await storeToken(random(32), sha256), app.fetch);
+  await assert.rejects(stranger.hello(), (e: unknown) => e instanceof StoreError && e.code === 'unauthorized');
+  await assert.rejects(stranger.get('phone-abcdef.enc'), /different family code/);
+
+  // Names can't escape the folder; large files are replaced instead of overwritten.
+  await assert.rejects(store.put('../secret', 'x'), (e: unknown) => e instanceof StoreError && e.code === 'bad-name');
+  const big = 'x'.repeat(10 * 1024 * 1024);
+  await store.put('file-big.enc', 'small');
+  await store.put('file-big.enc', big);
+  assert.equal((await store.get('file-big.enc'))!.length, big.length);
+  assert.equal((await store.list()).filter((f) => f.name === 'file-big.enc').length, 1);
+});
+
+test('storage link problems are explained', async () => {
+  const html = (async () => new Response('<html>Sign in</html>', { status: 200 })) as typeof fetch;
+  await assert.rejects(new StoreClient(URL, 'x'.repeat(64), html).hello(), /Who has access/);
+  const down = (async () => new Response('Service unavailable', { status: 503 })) as typeof fetch;
+  await assert.rejects(new StoreClient(URL, 'x'.repeat(64), down).hello(), /503/);
+  const offline = (async () => {
+    throw new TypeError('Network request failed');
   }) as typeof fetch;
-  return { fn, calls };
-}
-const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status, headers: { 'Content-Type': 'application/json' } });
-
-test('Drive: creating, sharing and updating use the signed-in token', async () => {
-  const { fn, calls } = fakeFetch([json({ id: 'FILE123' }), json({ id: 'perm' }), json({ id: 'FILE123' })]);
-  const drive = new DriveClient({ getToken: async () => 'tok', dropToken: async () => {}, apiKey: 'KEY', fetchFn: fn });
-  assert.equal(await drive.createFile('Family.enc', 'FHRSYNC1:abc', { parent: 'FOLDER', tag: 'snapshot' }), 'FILE123');
-  await drive.shareByLink('FILE123');
-  await drive.updateFile('FILE123', 'FHRSYNC1:def');
-  assert.match(calls[0].url, /upload\/drive\/v3\/files\?uploadType=multipart/);
-  assert.equal((calls[0].init!.headers as Record<string, string>).Authorization, 'Bearer tok');
-  const body = String(calls[0].init!.body);
-  assert.match(body, /"parents":\["FOLDER"\]/);
-  assert.match(body, /"appProperties":\{"fhr":"snapshot"\}/);
-  assert.match(body, /FHRSYNC1:abc/);
-  assert.deepEqual(JSON.parse(String(calls[1].init!.body)), { role: 'reader', type: 'anyone', allowFileDiscovery: false });
-  assert.equal(calls[2].init!.method, 'PATCH');
-});
-
-test('Drive: an expired token is dropped and the request retried once', async () => {
-  const tokens = ['old', 'new'];
-  const dropped: string[] = [];
-  const { fn, calls } = fakeFetch([json({ error: { message: 'expired' } }, 401), json({ files: [{ id: 'F1' }] })]);
-  const drive = new DriveClient({ getToken: async () => tokens.shift()!, dropToken: async (t) => void dropped.push(t), apiKey: 'K', fetchFn: fn });
-  assert.equal(await drive.findOwn('snapshot'), 'F1');
-  assert.deepEqual(dropped, ['old']);
-  assert.equal((calls[1].init!.headers as Record<string, string>).Authorization, 'Bearer new');
-  assert.match(decodeURIComponent(calls[1].url), /appProperties has \{ key='fhr' and value='snapshot' \}/);
-});
-
-test('Drive: family files are read with the API key; missing ones return null', async () => {
-  const { fn, calls } = fakeFetch([json({ modifiedTime: '2026-10-02T10:00:00Z' }), new Response('FHRSYNC1:xyz'), json({}, 404)]);
-  const drive = new DriveClient({ getToken: async () => null, dropToken: async () => {}, apiKey: 'K&Y', fetchFn: fn });
-  assert.equal(await drive.publicModifiedTime('F1'), '2026-10-02T10:00:00Z');
-  assert.equal(await drive.publicDownload('F1'), 'FHRSYNC1:xyz');
-  assert.equal(await drive.publicModifiedTime('GONE'), null);
-  assert.match(calls[0].url, /files\/F1\?fields=modifiedTime&key=K%26Y$/);
-  assert.match(calls[1].url, /files\/F1\?alt=media&key=K%26Y$/);
-  assert.equal(calls[0].init, undefined); // no Authorization header for public reads
-});
-
-test('Drive: writing without signing in explains why', async () => {
-  const drive = new DriveClient({ getToken: async () => null, dropToken: async () => {}, apiKey: 'K', fetchFn: fakeFetch([]).fn });
-  await assert.rejects(() => drive.updateFile('F', 'x'), (e: unknown) => e instanceof DriveError && e.status === 401);
+  await assert.rejects(new StoreClient(URL, 'x'.repeat(64), offline).list(), /internet connection/);
 });
