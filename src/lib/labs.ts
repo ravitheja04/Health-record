@@ -21,6 +21,15 @@ export function listMemberResults(db: SQLiteDatabase, memberId: string) {
   );
 }
 
+/** Every family member's results, for the smart report's member picker. */
+export function listAllResults(db: SQLiteDatabase) {
+  return db.getAllAsync<LabPoint & { memberId: string }>(
+    `SELECT l.*, r.date AS date, r.title AS recordTitle, r.memberId AS memberId
+     FROM lab_results l JOIN records r ON r.id = l.recordId
+     ORDER BY r.date ASC, l.createdAt ASC`
+  );
+}
+
 export function countMemberResults(db: SQLiteDatabase, memberId: string) {
   return db
     .getFirstAsync<{ n: number }>(

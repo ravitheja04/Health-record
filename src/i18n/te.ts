@@ -869,6 +869,20 @@ const te: Record<string, string> = {
   "The family storage didn’t answer ({status}). Try again later.": "కుటుంబ స్టోరేజ్ స్పందించలేదు ({status}). తర్వాత మళ్లీ ప్రయత్నించండి.",
   "Sending": "పంపుతోంది",
   "“{name}” is too big to share with the family (over 15 MB). It stays on this phone.": "“{name}” కుటుంబంతో పంచుకోవడానికి చాలా పెద్దది (15 MB కంటే ఎక్కువ). ఇది ఈ ఫోన్‌లోనే ఉంటుంది.",
+  "First result": "మొదటి ఫలితం",
+  "Open trend chart": "ట్రెండ్ చార్ట్ తెరవండి",
+  "tests across {n} reports, {from} to {to}": "పరీక్షలు, {n} రిపోర్టులలో, {from} నుండి {to} వరకు",
+  "tests in the report of {date}": "పరీక్షలు, {date} రిపోర్ట్‌లో",
+  "Values shown are from each test’s latest result up to {date} ({title}).": "చూపిన విలువలు {date} ({title}) వరకు ప్రతి పరీక్ష యొక్క తాజా ఫలితం నుండి.",
+  "Summary": "సారాంశం",
+  "All tests": "అన్ని పరీక్షలు",
+  "Out of range ({n})": "పరిధి బయట ({n})",
+  "Nothing out of range here.": "ఇక్కడ పరిధి బయట ఏదీ లేదు.",
+  "Smart report up to this report": "ఈ రిపోర్ట్ వరకు స్మార్ట్ రిపోర్ట్",
+  "{name}’s smart report": "{name} స్మార్ట్ రిపోర్ట్",
+  "All records": "అన్ని రికార్డులు",
+  "{n} test": "{n} పరీక్ష",
+  "{n} tests": "{n} పరీక్షలు",
 };
 
 export default te;

@@ -583,10 +583,11 @@ const PANEL_NAMES: Record<PanelKey, string> = {
 /** Columns of past reports that fit across a portrait page next to the test name and range. */
 const SMART_PDF_COLUMNS = 6;
 
-export async function shareSmartReportPdf(db: SQLiteDatabase, memberId: string) {
+/** `asOfRecordId` limits it to that lab report and the ones before it. */
+export async function shareSmartReportPdf(db: SQLiteDatabase, memberId: string, asOfRecordId?: string | null) {
   const m = await DB.getMember(db, memberId);
   if (!m) throw new Error(t('Family member not found.'));
-  const report = buildSmartReport(await Labs.listMemberResults(db, memberId));
+  const report = buildSmartReport(await Labs.listMemberResults(db, memberId), asOfRecordId);
   if (!report.testCount) throw new Error(t('No test results yet'));
   const cols = report.columns.slice(-SMART_PDF_COLUMNS);
   const trimmed = report.columns.length - cols.length;

@@ -175,6 +175,13 @@ export default function RecordScreen() {
             ) : (
               <Text style={styles.subtitle}>{t('Type in the values from this report to track them over time.')}</Text>
             )}
+            {results.length ? (
+              <Button
+                title={t('Smart report up to this report')}
+                icon="document-text-outline"
+                onPress={() => router.push({ pathname: '/labs/report', params: { memberId: record.memberId, asOf: id } })}
+              />
+            ) : null}
             <Button
               title={results.length ? t('Edit test results') : t('Add test results')}
               icon={results.length ? 'create-outline' : 'add-outline'}
